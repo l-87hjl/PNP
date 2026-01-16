@@ -286,22 +286,34 @@
         }
 
         /**
-         * Display the solution
+         * Display the solution - SHOWS ALL DIALS
          */
         function displaySolution(solution, solveTime) {
             let html = '<div style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px;">';
             html += `<div style="margin-bottom: 10px; color: var(--accent-green);"><strong>✓ Solution Found</strong></div>`;
             html += `<div style="margin-bottom: 10px; font-size: 0.9rem;">Solve time: ${solveTime}s</div>`;
-            html += '<div style="font-size: 0.9rem;"><strong>Dial Values:</strong></div>';
-            html += '<div style="max-height: 200px; overflow-y: auto; margin-top: 8px;">';
+            html += '<div style="font-size: 0.9rem;"><strong>Dial Values (showing all ' + currentInstance.num_dials + ' dials):</strong></div>';
+            html += '<div style="max-height: 300px; overflow-y: auto; margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">';
 
+            // CRITICAL: Show ALL dials from 1 to num_dials
             for (let dial = 1; dial <= currentInstance.num_dials; dial++) {
                 const value = solution[dial];
-                const label = value === 6 ? 'TRUE' : 'FALSE';
-                const color = value === 6 ? 'var(--accent-green)' : 'var(--accent-red)';
-                html += `<div style="padding: 4px 0; border-bottom: 1px solid var(--border-muted);">`;
-                html += `Dial ${dial}: ${value} <span style="color: ${color};">(${label})</span>`;
-                html += `</div>`;
+
+                if (value === undefined || value === null) {
+                    // MISSING DIAL - This should never happen but we check
+                    html += `<div style="padding: 8px; border-radius: 4px; background-color: #fff3cd; border: 2px solid #ffc107;">`;
+                    html += `<strong>Dial ${dial}:</strong> <span style="color: #ff0000;">NOT SET ⚠️</span>`;
+                    html += `</div>`;
+                } else {
+                    const label = value === 6 ? 'TRUE' : 'FALSE';
+                    const bgColor = value === 6 ? 'rgba(63, 185, 80, 0.2)' : 'rgba(248, 81, 73, 0.2)';
+                    const borderColor = value === 6 ? 'var(--accent-green)' : 'var(--accent-red)';
+                    const textColor = value === 6 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+                    html += `<div style="padding: 8px; border-radius: 4px; background-color: ${bgColor}; border: 2px solid ${borderColor};">`;
+                    html += `<strong>Dial ${dial}:</strong> ${value} <span style="color: ${textColor}; font-weight: bold;">(${label})</span>`;
+                    html += `</div>`;
+                }
             }
 
             html += '</div></div>';

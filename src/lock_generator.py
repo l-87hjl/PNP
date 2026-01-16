@@ -293,6 +293,21 @@ def auto_generate(num_vars: int, num_clauses: int, output: Optional[str] = None)
     print(f"  Solve time: {stats['solve_time']:.4f} seconds")
     print()
 
+    # CRITICAL: Validate solution before saving
+    print("Validating solution...")
+    is_valid, error_msg = solution.validate(instance)
+
+    if not is_valid:
+        print(f"\n⚠️  ERROR: Solver produced invalid solution!")
+        print(f"Validation error: {error_msg}")
+        print("\n💡 Regenerating instance...")
+        # Try again - the solver should never produce invalid solutions,
+        # but we validate to be safe
+        return auto_generate(num_vars, num_clauses, output)
+
+    print("✓ Solution validated successfully")
+    print()
+
     # Generate filenames
     if output:
         instance_file = f"{output}_instance.json"
