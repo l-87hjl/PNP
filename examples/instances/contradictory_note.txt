@@ -1,0 +1,36 @@
+UNSATISFIABLE INSTANCE: contradictory.json
+
+This instance is designed to be unsatisfiable due to a circular negation constraint.
+
+Configuration:
+- 3 dials
+- Negations: Not(1,2), Not(2,3), Not(1,3)
+- No OR clauses
+
+Why it's unsatisfiable:
+
+The negation constraints form an impossible triangle:
+- Not(1,2): dial 1 and dial 2 must be opposite
+- Not(2,3): dial 2 and dial 3 must be opposite
+- Not(1,3): dial 1 and dial 3 must be opposite
+
+Analysis:
+If dial 1 = TRUE (6):
+  → dial 2 = FALSE (1)  [from Not(1,2)]
+  → dial 3 = TRUE (6)   [from Not(2,3)]
+  → But Not(1,3) requires dial 1 ≠ dial 3
+  → Contradiction! Both are TRUE
+
+If dial 1 = FALSE (1):
+  → dial 2 = TRUE (6)   [from Not(1,2)]
+  → dial 3 = FALSE (1)  [from Not(2,3)]
+  → But Not(1,3) requires dial 1 ≠ dial 3
+  → Contradiction! Both are FALSE
+
+This creates an impossible constraint system - there is no valid assignment.
+
+In SAT terms, this encodes:
+  (x₁ ⊕ x₂) ∧ (x₂ ⊕ x₃) ∧ (x₁ ⊕ x₃)
+
+where ⊕ is XOR (exclusive OR). This formula is always false because:
+  x₁ ⊕ x₂ ⊕ x₃ must equal both 0 and 1 simultaneously.

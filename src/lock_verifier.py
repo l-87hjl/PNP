@@ -7,7 +7,98 @@ of a lock instance.
 """
 
 import sys
+from typing import Tuple, List
 from lock_types import LockInstance, LockSolution
+
+
+def verify_solution(instance: LockInstance, solution: LockSolution) -> Tuple[bool, List[str]]:
+    """
+    Verify a solution against a lock instance and return detailed results.
+
+    Args:
+        instance: The lock instance
+        solution: The proposed solution
+
+    Returns:
+        Tuple of (is_valid, messages)
+        - is_valid: True if the solution is valid, False otherwise
+        - messages: List of strings with constraint-by-constraint results
+    """
+    messages = []
+    all_valid = True
+
+    # Check dial coverage
+    missing_dials = []
+    for dial in range(1, instance.num_dials + 1):
+        if dial not in solution.dial_values:
+            missing_dials.append(dial)
+
+    if missing_dials:
+        messages.append(f"✗ Dial coverage: FAILED - Missing dials: {missing_dials}")
+        all_valid = False
+    else:
+        messages.append(f"✓ Dial coverage: PASSED - All {instance.num_dials} dials are set")
+
+    # Check for extra dials
+    extra_dials = []
+    for dial in solution.dial_values:
+        if dial < 1 or dial > instance.num_dials:
+            extra_dials.append(dial)
+
+    if extra_dials:
+        messages.append(f"✗ Extra dials: FAILED - Out of range dials: {extra_dials}")
+        all_valid = False
+    else:
+        messages.append(f"✓ Extra dials: PASSED - No extra dials")
+
+    # If basic checks failed, return early
+    if not all_valid:
+        return False, messages
+
+    # Check binary pins
+    binary_failures = []
+    for dial in instance.binary_pins:
+        value = solution.dial_values[dial]
+        if value not in [1, 6]:
+            binary_failures.append((dial, value))
+            messages.append(f"✗ Binary pin on dial {dial}: FAILED (value={value}, expected 1 or 6)")
+            all_valid = False
+
+    if not binary_failures:
+        messages.append(f"✓ Binary pins: PASSED - All {len(instance.binary_pins)} binary pins satisfied")
+
+    # Check negation links
+    negation_failures = 0
+    for dial_i, dial_j in instance.negations:
+        val_i = solution.dial_values[dial_i]
+        val_j = solution.dial_values[dial_j]
+        sum_val = val_i + val_j
+
+        if sum_val != 7:
+            messages.append(f"✗ Not({dial_i}, {dial_j}): FAILED (sum={sum_val}, expected 7)")
+            negation_failures += 1
+            all_valid = False
+
+    if negation_failures == 0:
+        messages.append(f"✓ Negation links: PASSED - All {len(instance.negations)} links satisfied")
+
+    # Check OR clauses
+    clause_failures = 0
+    for dial_i, dial_j, dial_k in instance.clauses:
+        val_i = solution.dial_values[dial_i]
+        val_j = solution.dial_values[dial_j]
+        val_k = solution.dial_values[dial_k]
+        sum_val = val_i + val_j + val_k
+
+        if sum_val < 8:
+            messages.append(f"✗ Clause ({dial_i},{dial_j},{dial_k}): FAILED (sum={sum_val}, expected >= 8)")
+            clause_failures += 1
+            all_valid = False
+
+    if clause_failures == 0:
+        messages.append(f"✓ OR clauses: PASSED - All {len(instance.clauses)} clauses satisfied")
+
+    return all_valid, messages
 
 
 def verify_solution_detailed(instance: LockInstance, solution: LockSolution) -> bool:

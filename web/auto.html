@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatic Generator - P vs NP</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="utils.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>⚡ Automatic Instance Generator</h1>
+            <p class="subtitle">Generate random lock instances with customizable parameters</p>
+            <a href="index.html" class="btn btn-secondary" style="margin-top: 15px;">← Back to Home</a>
+        </header>
+
+        <!-- Generator Interface -->
+        <div class="builder-container">
+            <!-- Left Panel: Parameters -->
+            <div class="control-panel">
+                <!-- Parameters -->
+                <div class="control-section">
+                    <h3>Generation Parameters</h3>
+
+                    <div class="form-group">
+                        <label for="numVars">Number of Variables (Dials): <span id="numVarsValue">10</span></label>
+                        <input type="range" id="numVars" min="3" max="50" value="10"
+                               oninput="updateSliderValue('numVars', 'numVarsValue')"
+                               style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="numClauses">Number of OR Clauses: <span id="numClausesValue">15</span></label>
+                        <input type="range" id="numClauses" min="3" max="100" value="15"
+                               oninput="updateSliderValue('numClauses', 'numClausesValue')"
+                               style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="negProb">Negation Probability: <span id="negProbValue">20</span>%</label>
+                        <input type="range" id="negProb" min="0" max="50" value="20"
+                               oninput="updateSliderValue('negProb', 'negProbValue')"
+                               style="width: 100%;">
+                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 5px;">
+                            Percentage of variables with negation links
+                        </p>
+                    </div>
+
+                    <button class="btn btn-primary" style="width: 100%;" onclick="generateInstance()">
+                        Generate Instance
+                    </button>
+                    <div id="genMessage"></div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="control-section" id="statsSection" style="display: none;">
+                    <h3>Statistics</h3>
+                    <div id="statsDisplay"></div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="control-section" id="downloadSection" style="display: none;">
+                    <h3>Download</h3>
+                    <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;" onclick="downloadInstance()">
+                        💾 Download Instance
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="downloadSolution()">
+                        ✅ Download Solution
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Output -->
+            <div class="visualization-panel">
+                <h3>Generated Instance & Solution</h3>
+
+                <!-- Instance JSON -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-blue); margin-bottom: 10px;">Instance JSON:</h4>
+                    <pre id="instanceJson" style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 0.9rem; max-height: 300px;">
+Click "Generate Instance" to create a random lock configuration</pre>
+                </div>
+
+                <!-- Solution JSON -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-green); margin-bottom: 10px;">Solution JSON:</h4>
+                    <pre id="solutionJson" style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 0.9rem; max-height: 300px;">
+Solution will appear here</pre>
+                </div>
+
+                <!-- Visualization -->
+                <div>
+                    <h4 style="color: var(--accent-purple); margin-bottom: 10px;">Visualization:</h4>
+                    <canvas id="generatorCanvas" width="700" height="500"></canvas>
+                    <div class="legend" style="margin-top: 15px;">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #3fb950; width: 30px; height: 30px; border-radius: 50%;"></div>
+                            <span>Dial set to TRUE (6)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #f85149; width: 30px; height: 30px; border-radius: 50%;"></div>
+                            <span>Dial set to FALSE (1)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // Automatic Instance Generator JavaScript
+        // ============================================
+
+        // Global state
+        let generatedInstance = null;
+        let generatedSolution = null;
+
+        /**
+         * Update slider value display
+         */
+        function updateSliderValue(sliderId, displayId) {
+            const value = document.getElementById(sliderId).value;
+            document.getElementById(displayId).textContent = value;
+        }
+
+        /**
+         * Generate a random lock instance
+         * Strategy: Create solution first, then generate clauses that satisfy it
+         * This ensures the instance is always satisfiable
+         */
+        function generateInstance() {
+            const msgDiv = document.getElementById('genMessage');
+
+            // Get parameters
+            const numVars = parseInt(document.getElementById('numVars').value);
+            const numClauses = parseInt(document.getElementById('numClauses').value);
+            const negProb = parseInt(document.getElementById('negProb').value) / 100;
+
+            showMessage(msgDiv, 'Generating instance...', 'success', 0);
+
+            // Step 1: Create a random solution
+            const solution = {};
+            for (let i = 1; i <= numVars; i++) {
+                // Randomly assign TRUE (6) or FALSE (1)
+                solution[i] = Math.random() < 0.5 ? 1 : 6;
+            }
+
+            // Step 2: Create negation links
+            const negations = [];
+            const numNegations = Math.floor(numVars * negProb / 2); // Pairs
+
+            // Shuffle dials and pair them
+            const availableDials = Array.from({length: numVars}, (_, i) => i + 1);
+            shuffleArray(availableDials);
+
+            for (let i = 0; i < numNegations * 2 - 1; i += 2) {
+                if (i + 1 < availableDials.length) {
+                    const dial1 = availableDials[i];
+                    const dial2 = availableDials[i + 1];
+
+                    // Add negation and adjust solution to satisfy it
+                    negations.push([dial1, dial2]);
+
+                    // Ensure dial1 + dial2 = 7
+                    if (solution[dial1] === 6) {
+                        solution[dial2] = 1;
+                    } else {
+                        solution[dial2] = 6;
+                    }
+                }
+            }
+
+            // Step 3: Generate OR clauses that are satisfied by the solution
+            const clauses = [];
+            for (let i = 0; i < numClauses; i++) {
+                // Pick 3 random distinct dials
+                const clause = getRandomDistinctDials(numVars, 3);
+
+                // If clause is not satisfied by current solution, flip one dial to TRUE
+                const sum = solution[clause[0]] + solution[clause[1]] + solution[clause[2]];
+                if (sum < 8) {
+                    // Find a dial in the clause that's FALSE and make it TRUE
+                    for (const dial of clause) {
+                        if (solution[dial] === 1) {
+                            solution[dial] = 6;
+                            break;
+                        }
+                    }
+                }
+
+                clauses.push(clause);
+            }
+
+            // Step 4: Build instance and solution objects
+            generatedInstance = {
+                num_dials: numVars,
+                binary_pins: Array.from({length: numVars}, (_, i) => i + 1),
+                negations: negations,
+                clauses: clauses
+            };
+
+            generatedSolution = {
+                dial_values: solution
+            };
+
+            // Display results
+            displayResults();
+
+            showMessage(msgDiv, 'Instance generated successfully!', 'success', 3000);
+        }
+
+        /**
+         * Get N random distinct dials
+         */
+        function getRandomDistinctDials(maxDial, count) {
+            const dials = [];
+            const used = new Set();
+
+            while (dials.length < count) {
+                const dial = Math.floor(Math.random() * maxDial) + 1;
+                if (!used.has(dial)) {
+                    dials.push(dial);
+                    used.add(dial);
+                }
+            }
+
+            return dials;
+        }
+
+        /**
+         * Fisher-Yates shuffle
+         */
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+        }
+
+        /**
+         * Display generated instance and solution
+         */
+        function displayResults() {
+            // Display instance JSON
+            document.getElementById('instanceJson').textContent =
+                JSON.stringify(generatedInstance, null, 2);
+
+            // Display solution JSON
+            document.getElementById('solutionJson').textContent =
+                JSON.stringify(generatedSolution, null, 2);
+
+            // Display statistics
+            const statsHtml = `
+                <div style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px;">
+                    <div style="margin-bottom: 8px;"><strong>Dials:</strong> ${generatedInstance.num_dials}</div>
+                    <div style="margin-bottom: 8px;"><strong>Negations:</strong> ${generatedInstance.negations.length}</div>
+                    <div style="margin-bottom: 8px;"><strong>Clauses:</strong> ${generatedInstance.clauses.length}</div>
+                    <div style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: var(--accent-green);">✓ SATISFIABLE</span></div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">
+                        This instance was generated to be satisfiable by construction
+                    </div>
+                </div>
+            `;
+            document.getElementById('statsDisplay').innerHTML = statsHtml;
+            document.getElementById('statsSection').style.display = 'block';
+            document.getElementById('downloadSection').style.display = 'block';
+
+            // Visualize with solution
+            visualizeLock(generatedInstance, 'generatorCanvas', generatedSolution);
+        }
+
+        /**
+         * Download generated instance
+         */
+        function downloadInstance() {
+            if (!generatedInstance) {
+                alert('Please generate an instance first');
+                return;
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            downloadJson(generatedInstance, `lock_instance_${timestamp}.json`);
+        }
+
+        /**
+         * Download generated solution
+         */
+        function downloadSolution() {
+            if (!generatedSolution) {
+                alert('Please generate an instance first');
+                return;
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            downloadJson(generatedSolution, `lock_solution_${timestamp}.json`);
+        }
+
+        // Initialize visualization
+        window.onload = function() {
+            const canvas = document.getElementById('generatorCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#8b949e';
+            ctx.font = '18px var(--font-sans)';
+            ctx.textAlign = 'center';
+            ctx.fillText('Generate an instance to see visualization', canvas.width / 2, canvas.height / 2);
+        };
+    </script>
+</body>
+</html>

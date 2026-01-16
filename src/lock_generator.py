@@ -7,9 +7,11 @@ that encode SAT problems.
 """
 
 import sys
+import random
+import argparse
 from datetime import datetime
-from typing import List, Optional
-from lock_types import LockInstance
+from typing import List, Optional, Tuple
+from lock_types import LockInstance, LockSolution
 
 
 def get_int_input(prompt: str, min_val: Optional[int] = None, max_val: Optional[int] = None) -> int:
@@ -205,8 +207,114 @@ def display_summary(instance: LockInstance) -> None:
     print("=" * 60)
 
 
-def main():
-    """Main entry point for the lock generator."""
+def generate_random_instance(num_vars: int, num_clauses: int, negation_prob: float = 0.2) -> LockInstance:
+    """
+    Generate a random lock instance.
+
+    Args:
+        num_vars: Number of variables (dials)
+        num_clauses: Number of OR clauses to generate
+        negation_prob: Probability of adding negation links (default 20%)
+
+    Returns:
+        Randomly generated LockInstance
+    """
+    # All dials are binary-pinned
+    binary_pins = list(range(1, num_vars + 1))
+
+    # Generate negation links (20% of variables get a negated version)
+    negations = []
+    num_negations = int(num_vars * negation_prob)
+
+    # Randomly select pairs for negation links
+    available_dials = list(range(1, num_vars + 1))
+    random.shuffle(available_dials)
+
+    for i in range(0, min(num_negations * 2, len(available_dials)) - 1, 2):
+        dial_i = available_dials[i]
+        dial_j = available_dials[i + 1]
+        negations.append([dial_i, dial_j])
+
+    # Generate random OR clauses
+    clauses = []
+    for _ in range(num_clauses):
+        # Randomly select 3 distinct dials
+        selected_dials = random.sample(range(1, num_vars + 1), 3)
+        clauses.append(selected_dials)
+
+    instance = LockInstance(
+        num_dials=num_vars,
+        binary_pins=binary_pins,
+        negations=negations,
+        clauses=clauses
+    )
+
+    return instance
+
+
+def auto_generate(num_vars: int, num_clauses: int, output: Optional[str] = None) -> Tuple[str, str]:
+    """
+    Automatically generate and solve a random lock instance.
+
+    Args:
+        num_vars: Number of variables (dials)
+        num_clauses: Number of OR clauses
+        output: Optional base filename (without extension)
+
+    Returns:
+        Tuple of (instance_filename, solution_filename)
+    """
+    from lock_solver import solve_lock
+
+    print(f"Generating random lock instance...")
+    print(f"  Variables: {num_vars}")
+    print(f"  OR clauses: {num_clauses}")
+    print()
+
+    # Generate instance
+    instance = generate_random_instance(num_vars, num_clauses)
+
+    print(f"Generated instance:")
+    print(f"  Negation links: {len(instance.negations)}")
+    print(f"  OR clauses: {len(instance.clauses)}")
+    print()
+
+    # Solve to ensure it's satisfiable
+    print("Solving to verify satisfiability...")
+    solution, stats = solve_lock(instance, verbose=False)
+
+    if not solution:
+        print("✗ Generated instance is UNSATISFIABLE!")
+        print("Retrying with different constraints...")
+        # Try again with fewer clauses
+        return auto_generate(num_vars, max(1, num_clauses - 5), output)
+
+    print("✓ Instance is SATISFIABLE")
+    print(f"  Solve time: {stats['solve_time']:.4f} seconds")
+    print()
+
+    # Generate filenames
+    if output:
+        instance_file = f"{output}_instance.json"
+        solution_file = f"{output}_solution.json"
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        instance_file = f"examples/instances/lock_instance_{timestamp}.json"
+        solution_file = f"examples/solutions/lock_solution_{timestamp}.json"
+
+    # Save files
+    print("Saving files...")
+    instance.save_to_file(instance_file)
+    solution.save_to_file(solution_file)
+
+    print(f"✓ Instance saved to: {instance_file}")
+    print(f"✓ Solution saved to: {solution_file}")
+
+    return instance_file, solution_file
+
+
+def interactive_mode():
+    """Run the interactive lock generator."""
     print_header()
     print_constraint_info()
 
@@ -272,6 +380,70 @@ def main():
             if confirm in ['yes', 'y']:
                 print("\nExiting without saving. Goodbye!")
                 sys.exit(0)
+
+
+def main():
+    """Main entry point for the lock generator."""
+    parser = argparse.ArgumentParser(
+        description='Generate lock instances for SAT problems',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Interactive mode
+  python lock_generator.py
+
+  # Auto-generate with 10 variables and 20 clauses
+  python lock_generator.py --auto --vars 10 --clauses 20
+
+  # Auto-generate with custom output filename
+  python lock_generator.py --auto --vars 15 --clauses 30 --output my_lock
+        """
+    )
+
+    parser.add_argument('--auto', action='store_true',
+                        help='Automatically generate a random instance')
+    parser.add_argument('--vars', type=int, metavar='N',
+                        help='Number of variables (dials) for auto mode')
+    parser.add_argument('--clauses', type=int, metavar='M',
+                        help='Number of OR clauses for auto mode')
+    parser.add_argument('--output', type=str, metavar='FILE',
+                        help='Output file base name (without extension)')
+
+    args = parser.parse_args()
+
+    # Auto mode
+    if args.auto:
+        if not args.vars or not args.clauses:
+            parser.error("--auto requires both --vars and --clauses")
+
+        if args.vars < 3:
+            parser.error("--vars must be at least 3")
+
+        if args.clauses < 1:
+            parser.error("--clauses must be at least 1")
+
+        try:
+            print_header()
+            instance_file, solution_file = auto_generate(args.vars, args.clauses, args.output)
+            print()
+            print("=" * 60)
+            print("Auto-generation complete!")
+            print("=" * 60)
+        except Exception as e:
+            print(f"Error: {e}")
+            import traceback
+            traceback.print_exc()
+            sys.exit(1)
+    else:
+        # Interactive mode
+        if args.vars or args.clauses or args.output:
+            parser.error("--vars, --clauses, and --output can only be used with --auto")
+
+        try:
+            interactive_mode()
+        except KeyboardInterrupt:
+            print("\n\nOperation cancelled by user. Goodbye!")
+            sys.exit(0)
 
 
 if __name__ == "__main__":
