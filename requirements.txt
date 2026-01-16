@@ -1,0 +1,9 @@
+# PNP - P vs NP Experimentation Tool
+# Requirements for the lock-and-SAT equivalence system
+
+# SAT Solver
+python-sat>=0.1.8
+
+# Optional: For future web interface
+# flask>=3.0.0
+# flask-cors>=4.0.0
