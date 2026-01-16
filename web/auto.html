@@ -175,6 +175,14 @@ Solution will appear here</pre>
 
             // Step 3: Generate OR clauses that are satisfied by the solution
             const clauses = [];
+
+            // Create a map of which dials are in negation links
+            const negationMap = new Map();
+            for (const [dial1, dial2] of negations) {
+                negationMap.set(dial1, dial2);
+                negationMap.set(dial2, dial1);
+            }
+
             for (let i = 0; i < numClauses; i++) {
                 // Pick 3 random distinct dials
                 const clause = getRandomDistinctDials(numVars, 3);
@@ -183,10 +191,30 @@ Solution will appear here</pre>
                 const sum = solution[clause[0]] + solution[clause[1]] + solution[clause[2]];
                 if (sum < 8) {
                     // Find a dial in the clause that's FALSE and make it TRUE
+                    // IMPORTANT: Prefer dials NOT in negation links to avoid breaking constraints
+                    let flipped = false;
+
+                    // First try dials not in negations
                     for (const dial of clause) {
-                        if (solution[dial] === 1) {
+                        if (solution[dial] === 1 && !negationMap.has(dial)) {
                             solution[dial] = 6;
+                            flipped = true;
                             break;
+                        }
+                    }
+
+                    // If all are in negations, carefully flip and update the negated pair
+                    if (!flipped) {
+                        for (const dial of clause) {
+                            if (solution[dial] === 1) {
+                                solution[dial] = 6;
+                                // Update its negation pair if it exists
+                                if (negationMap.has(dial)) {
+                                    const partner = negationMap.get(dial);
+                                    solution[partner] = 1; // Ensure sum = 7
+                                }
+                                break;
+                            }
                         }
                     }
                 }
@@ -206,10 +234,63 @@ Solution will appear here</pre>
                 dial_values: solution
             };
 
+            // CRITICAL: Validate solution before displaying
+            const validation = validateCompleteSolution(generatedInstance, solution);
+            if (!validation.isValid) {
+                console.error("Generated invalid solution:", validation.errors);
+                showMessage(msgDiv, 'Error: Generated invalid solution. Retrying...', 'error', 2000);
+                // Retry with different random seed
+                setTimeout(generateInstance, 100);
+                return;
+            }
+
             // Display results
             displayResults();
 
             showMessage(msgDiv, 'Instance generated successfully!', 'success', 3000);
+        }
+
+        /**
+         * Validate a complete solution against all constraints
+         */
+        function validateCompleteSolution(instance, dialValues) {
+            const errors = [];
+
+            // Check all dials are set
+            for (let i = 1; i <= instance.num_dials; i++) {
+                if (!dialValues[i] && dialValues[i] !== 0) {
+                    errors.push(`Dial ${i} not set`);
+                }
+            }
+
+            // Check binary constraints
+            instance.binary_pins.forEach(dial => {
+                const val = dialValues[dial];
+                if (val !== 1 && val !== 6) {
+                    errors.push(`Binary constraint violated: Dial ${dial} = ${val}, must be 1 or 6`);
+                }
+            });
+
+            // Check negations (CRITICAL - this is where the bug manifests)
+            instance.negations.forEach(([i, j]) => {
+                const sum = dialValues[i] + dialValues[j];
+                if (sum !== 7) {
+                    errors.push(`Negation violated: Not(${i},${j}) - ${dialValues[i]} + ${dialValues[j]} = ${sum}, must equal 7`);
+                }
+            });
+
+            // Check OR clauses
+            instance.clauses.forEach(([i, j, k]) => {
+                const sum = dialValues[i] + dialValues[j] + dialValues[k];
+                if (sum < 8) {
+                    errors.push(`OR clause violated: (${i},${j},${k}) - sum = ${sum}, must be >= 8`);
+                }
+            });
+
+            return {
+                isValid: errors.length === 0,
+                errors: errors
+            };
         }
 
         /**
@@ -289,9 +370,18 @@ Solution will appear here</pre>
          * Download generated solution
          */
         function downloadSolution() {
-            if (!generatedSolution) {
+            if (!generatedSolution || !generatedInstance) {
                 alert('Please generate an instance first');
                 return;
+            }
+
+            // CRITICAL: Validate before download
+            const validation = validateCompleteSolution(generatedInstance, generatedSolution.dial_values);
+
+            if (!validation.isValid) {
+                alert("Cannot download: Solution is invalid!\n\n" + validation.errors.join("\n"));
+                console.error("Solution validation failed:", validation.errors);
+                return;  // Don't download
             }
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
