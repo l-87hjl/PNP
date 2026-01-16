@@ -2,6 +2,15 @@
 
 A constraint-based lock system that encodes SAT problems, enabling exploration of the P vs NP question through physical lock metaphors.
 
+## 🌐 Live Demo
+
+**Visit the interactive web interface:** [https://l-87hjl.github.io/PNP/](https://l-87hjl.github.io/PNP/)
+
+Try the tools online without any installation:
+- 🛠️ **Manual Lock Builder** - Create custom lock instances visually
+- ⚡ **Automatic Generator** - Generate random instances with parameters
+- 🔍 **Lock Solver** - Upload and solve instances in your browser
+
 ## Overview
 
 This project provides tools to create, solve, and visualize constraint-based locks where:
@@ -92,12 +101,14 @@ pip install -r requirements.txt
 
 ## Usage
 
-### 1. Generate a Lock Instance
+### Python Tools
+
+#### 1. Manual Lock Creation (Interactive)
 
 Use the interactive CLI to create lock configurations:
 
 ```bash
-python src/lock_generator.py
+python -m src.lock_generator
 ```
 
 **Interactive prompts**:
@@ -131,12 +142,34 @@ Select option (1-5): 4
 ✓ Lock instance saved to: examples/instances/lock_instance_20260116_143022.json
 ```
 
-### 2. Solve a Lock Instance
+#### 2. Automatic Instance Generation
+
+Generate random lock instances with specified parameters:
+
+```bash
+python -m src.lock_generator --auto --vars 10 --clauses 20 --output test
+```
+
+This creates:
+- `test_instance.json` - The lock instance
+- `test_solution.json` - A valid solution
+
+**Parameters:**
+- `--vars N` - Number of variables (dials)
+- `--clauses M` - Number of OR clauses
+- `--output FILE` - Output file base name
+
+#### 3. Solve a Lock Instance
 
 Use the SAT solver to find a valid configuration:
 
 ```bash
-python src/lock_solver.py examples/instances/lock_instance_20260116_143022.json
+python -m src.lock_solver examples/instances/small.json
+```
+
+**With verbose output:**
+```bash
+python -m src.lock_solver examples/instances/medium.json -v
 ```
 
 **Output**:
@@ -159,12 +192,12 @@ Dial settings:
 ✓ Solution verified successfully!
 ```
 
-### 3. Verify a Solution
+#### 4. Verify a Solution
 
 Check if a solution satisfies all constraints:
 
 ```bash
-python src/lock_verifier.py examples/instances/lock_instance.json examples/solutions/lock_solution.json
+python -m src.lock_verifier examples/instances/small.json examples/solutions/small.json
 ```
 
 **Output**:
@@ -193,6 +226,86 @@ RESULT: VALID ✓
 All constraints are satisfied!
 ============================================================
 ```
+
+## Web Interface
+
+The web interface provides three interactive tools for working with lock instances directly in your browser. Access the live demo at [https://l-87hjl.github.io/PNP/](https://l-87hjl.github.io/PNP/).
+
+### 🛠️ Manual Lock Builder
+
+Create custom lock instances with visual feedback:
+
+1. Visit `web/manual.html` or select "Manual Builder" from the home page
+2. Initialize a lock with the desired number of dials
+3. Add negation links and OR clauses using the control panel
+4. Watch the real-time visualization update as you add constraints
+5. Download your instance as a JSON file
+
+**Features:**
+- Interactive canvas visualization
+- Real-time constraint validation
+- Prevent duplicate constraints
+- Export to JSON format
+
+### ⚡ Automatic Generator
+
+Generate random satisfiable lock instances:
+
+1. Visit `web/auto.html` or select "Auto Generator" from the home page
+2. Adjust parameters using sliders:
+   - Number of variables (3-50 dials)
+   - Number of OR clauses (3-100)
+   - Negation probability (0-50%)
+3. Click "Generate Instance"
+4. Download both the instance and solution files
+
+**Algorithm:** The generator uses a solution-first approach, creating a random solution and then generating constraints that the solution satisfies. This guarantees the instance is satisfiable.
+
+### 🔍 Lock Solver
+
+Solve lock instances in your browser:
+
+1. Visit `web/solver.html` or select "Solver" from the home page
+2. Upload a lock instance JSON file
+3. Click "Solve Lock" to find a solution
+4. View the solution with automatic verification
+5. See the visualization updated with the solution
+
+**Note:** The browser-based solver uses a backtracking algorithm optimized for small instances (up to ~12 variables). For larger instances, use the Python solver with PySAT.
+
+### Local Testing
+
+To run the web interface locally:
+
+```bash
+cd web/
+python3 -m http.server 8000
+# Visit http://localhost:8000
+```
+
+## Running Tests
+
+Execute the comprehensive test suite with pytest:
+
+```bash
+# Run all tests
+./tests/run_tests.sh
+
+# Or use pytest directly
+python -m pytest tests/ -v
+
+# Run specific test categories
+python -m pytest tests/ -k "TestSolver" -v
+```
+
+The test suite includes 38 tests covering:
+- Lock instance validation and serialization
+- Solution verification (all constraint types)
+- SAT solver correctness
+- Example instance integrity
+- Edge cases and error handling
+
+All tests should pass before committing changes.
 
 ## File Format Specification
 
@@ -247,15 +360,24 @@ PNP/
 ├── src/
 │   ├── __init__.py              # Package initialization
 │   ├── lock_types.py            # Core data structures
-│   ├── lock_generator.py        # Interactive lock creation CLI
-│   ├── lock_solver.py           # SAT solver
+│   ├── lock_generator.py        # Interactive/automatic generator
+│   ├── lock_solver.py           # SAT solver with PySAT
 │   └── lock_verifier.py         # Solution verification
 ├── web/
-│   └── (future web interface)
+│   ├── index.html               # Landing page
+│   ├── manual.html              # Interactive lock builder
+│   ├── auto.html                # Automatic generator
+│   ├── solver.html              # Browser-based solver
+│   ├── utils.js                 # Shared utilities
+│   └── styles.css               # Responsive dark theme
 ├── examples/
 │   ├── instances/               # Sample lock instances
-│   └── solutions/               # Sample solutions
-├── tests/                       # Unit tests (future)
+│   ├── solutions/               # Sample solutions
+│   └── README.md                # Examples documentation
+├── tests/
+│   ├── test_lock_system.py      # Comprehensive test suite
+│   ├── run_tests.sh             # Test runner script
+│   └── README.md                # Testing documentation
 ├── requirements.txt             # Python dependencies
 └── README.md                    # This file
 ```
@@ -317,14 +439,48 @@ The solver converts lock constraints to CNF (Conjunctive Normal Form):
 
 The SAT solver (PySAT's Glucose3) then determines if the CNF formula is satisfiable.
 
+### Connection to P vs NP
+
+This project explores the P vs NP question through the lens of constraint satisfaction:
+
+**Why Lock Systems Matter:**
+- SAT is NP-complete: Every problem in NP can be reduced to SAT in polynomial time
+- Our lock system provides a physical metaphor for SAT problems
+- Finding a lock configuration is equivalent to solving SAT
+- Verifying a configuration is fast (polynomial time)
+
+**The Central Question:**
+- **Verification (Class P)**: Given a lock configuration, we can quickly verify if it satisfies all constraints by checking each constraint in O(n) time
+- **Finding Solutions (Class NP)**: Finding a valid configuration appears to require trying many possibilities, potentially exponential time in the worst case
+- **P vs NP**: Does there exist a polynomial-time algorithm to find solutions, or is checking all possibilities fundamentally necessary?
+
+**Current State:**
+- The Python solver uses Glucose3, a state-of-the-art SAT solver with heuristics that work well in practice
+- The JavaScript solver uses backtracking with pruning, demonstrating exponential worst-case behavior
+- Both solvers can verify solutions in polynomial time
+- No known polynomial-time algorithm exists for finding solutions in the general case
+
+**Experimentation:**
+- Compare solving times across different instance sizes
+- Observe exponential growth in hard instances
+- Understand the gap between verification (easy) and search (hard)
+- Explore heuristics that make practical solving feasible
+
+This project makes the theoretical question tangible: you can create instances, watch solvers struggle, and understand why P vs NP remains one of computer science's deepest mysteries.
+
 ## Future Enhancements
 
-- [ ] Web-based visualization interface
+- [x] Web-based visualization interface
+- [x] Interactive lock builder
+- [x] Automatic instance generator
+- [x] Browser-based solver
 - [ ] Lock animation and simulation
 - [ ] Performance benchmarking tools
-- [ ] Support for larger constraint types
+- [ ] Support for larger constraint types (4-SAT, XOR, etc.)
 - [ ] Statistical analysis of instance difficulty
-- [ ] Integration with other SAT solvers
+- [ ] Integration with other SAT solvers (MiniSAT, CryptoMiniSat)
+- [ ] Export visualizations as PNG/SVG
+- [ ] Dark/light theme toggle
 
 ## License
 
