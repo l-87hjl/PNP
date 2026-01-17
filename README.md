@@ -144,19 +144,36 @@ Select option (1-5): 4
 
 #### 2. Automatic Instance Generation
 
-Generate random lock instances with specified parameters:
+Generate random lock instances with difficulty-based parameters:
 
 ```bash
-python -m src.lock_generator --auto --vars 10 --clauses 20 --output test
+# Generate easy instance with 20 variables
+python -m src.lock_generator --auto --vars 20 --difficulty easy
+
+# Generate hard instance
+python -m src.lock_generator --auto --vars 30 --difficulty hard
+
+# Generate at phase transition (50/50 SAT/UNSAT)
+python -m src.lock_generator --auto --vars 30 --difficulty phase-transition
+
+# Generate with custom output filename
+python -m src.lock_generator --auto --vars 15 --difficulty medium --output my_lock
 ```
 
 This creates:
-- `test_instance.json` - The lock instance
-- `test_solution.json` - A valid solution
+- Instance JSON file with difficulty-aware naming
+- Solution JSON file (if SAT)
+
+**Difficulty Levels:**
+- `trivial` - Always solvable, ratio ~1.5, no negations
+- `easy` - Basic challenge, ratio ~2.5, 15% negations
+- `medium` - Genuinely challenging, ratio ~3.5, 30% negations
+- `hard` - Very challenging, ratio ~4.2, 40% negations
+- `phase-transition` - 50/50 SAT/UNSAT, ratio ~4.3, 50% negations
 
 **Parameters:**
-- `--vars N` - Number of variables (dials)
-- `--clauses M` - Number of OR clauses
+- `--vars N` - Number of base variables (dials)
+- `--difficulty LEVEL` - Difficulty level (default: easy)
 - `--output FILE` - Output file base name
 
 #### 3. Solve a Lock Instance
@@ -225,6 +242,40 @@ VERIFICATION REPORT
 RESULT: VALID ✓
 All constraints are satisfied!
 ============================================================
+```
+
+#### 5. Benchmarking
+
+Verify difficulty levels and tune parameters with the benchmarking tool:
+
+```bash
+# Run benchmark with default parameters (30 vars, 20 trials)
+python benchmark.py
+
+# Custom parameters
+python benchmark.py --vars 30 --trials 20
+```
+
+**What it does:**
+- Generates 20 instances at each difficulty level
+- Solves each instance with timing
+- Reports SAT rates and solve times (mean, median, min, max, stddev)
+- Recommends adjustments if phase-transition is off-target
+- Checks if difficulty levels show monotonic increase
+
+**Expected Results:**
+- Trivial/Easy/Medium/Hard: ~100% SAT rate
+- Phase-Transition: ~40-60% SAT rate (target: 50%)
+- Solve times should increase with difficulty
+
+**Use this to:**
+- Empirically tune clause ratios for your hardware
+- Verify that difficulty levels are distinct
+- Adjust phase-transition ratio to achieve ~50% SAT rate
+
+**Requirements:**
+```bash
+pip install python-sat
 ```
 
 ## Web Interface
@@ -378,6 +429,7 @@ PNP/
 │   ├── test_lock_system.py      # Comprehensive test suite
 │   ├── run_tests.sh             # Test runner script
 │   └── README.md                # Testing documentation
+├── benchmark.py                 # Difficulty level benchmarking tool
 ├── requirements.txt             # Python dependencies
 └── README.md                    # This file
 ```
@@ -474,8 +526,9 @@ This project makes the theoretical question tangible: you can create instances, 
 - [x] Interactive lock builder
 - [x] Automatic instance generator
 - [x] Browser-based solver
+- [x] Performance benchmarking tools
+- [x] Difficulty-based instance generation
 - [ ] Lock animation and simulation
-- [ ] Performance benchmarking tools
 - [ ] Support for larger constraint types (4-SAT, XOR, etc.)
 - [ ] Statistical analysis of instance difficulty
 - [ ] Integration with other SAT solvers (MiniSAT, CryptoMiniSat)
