@@ -20,6 +20,31 @@
         <div class="builder-container">
             <!-- Left Panel: Parameters -->
             <div class="control-panel">
+                <!-- Instance Type Selection -->
+                <div class="control-section">
+                    <h3>Instance Type</h3>
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; margin-bottom: 10px; cursor: pointer;">
+                            <input type="radio" name="instanceType" value="solvable" checked style="margin-right: 10px;">
+                            <div>
+                                <strong>Solvable Instance</strong>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 3px 0 0 0;">
+                                    Guaranteed to have a valid solution
+                                </p>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer;">
+                            <input type="radio" name="instanceType" value="random" style="margin-right: 10px;">
+                            <div>
+                                <strong>Random Instance</strong>
+                                <p style="font-size: 0.85rem; color: var(--text-muted); margin: 3px 0 0 0;">
+                                    May or may not be solvable (use solver to verify)
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <!-- Parameters -->
                 <div class="control-section">
                     <h3>Generation Parameters</h3>
@@ -128,8 +153,9 @@ Solution will appear here</pre>
 
         /**
          * Generate a random lock instance
-         * Strategy: Create solution first, then generate clauses that satisfy it
-         * This ensures the instance is always satisfiable
+         * Strategy depends on instance type:
+         * - Solvable: Create solution first, then generate clauses that satisfy it
+         * - Random: Generate random clauses without ensuring satisfiability
          */
         function generateInstance() {
             const msgDiv = document.getElementById('genMessage');
@@ -139,7 +165,66 @@ Solution will appear here</pre>
             const numClauses = parseInt(document.getElementById('numClauses').value);
             const negProb = parseInt(document.getElementById('negProb').value) / 100;
 
+            // Get instance type
+            const instanceType = document.querySelector('input[name="instanceType"]:checked').value;
+
             showMessage(msgDiv, 'Generating instance...', 'success', 0);
+
+            // Generate based on type
+            if (instanceType === 'random') {
+                generateRandomInstance(numVars, numClauses, negProb, msgDiv);
+            } else {
+                generateSolvableInstance(numVars, numClauses, negProb, msgDiv);
+            }
+        }
+
+        /**
+         * Generate a truly random instance (may or may not be solvable)
+         */
+        function generateRandomInstance(numVars, numClauses, negProb, msgDiv) {
+            // Step 1: Create random negation links
+            const negations = [];
+            const numNegations = Math.floor(numVars * negProb / 2); // Pairs
+
+            // Shuffle dials and pair them
+            const availableDials = Array.from({length: numVars}, (_, i) => i + 1);
+            shuffleArray(availableDials);
+
+            for (let i = 0; i < numNegations * 2 - 1; i += 2) {
+                if (i + 1 < availableDials.length) {
+                    const dial1 = availableDials[i];
+                    const dial2 = availableDials[i + 1];
+                    negations.push([dial1, dial2]);
+                }
+            }
+
+            // Step 2: Generate completely random OR clauses
+            const clauses = [];
+            for (let i = 0; i < numClauses; i++) {
+                const clause = getRandomDistinctDials(numVars, 3);
+                clauses.push(clause);
+            }
+
+            // Step 3: Build instance (no solution)
+            generatedInstance = {
+                num_dials: numVars,
+                binary_pins: Array.from({length: numVars}, (_, i) => i + 1),
+                negations: negations,
+                clauses: clauses
+            };
+
+            generatedSolution = null; // No solution for random instances
+
+            // Display results
+            displayResults();
+
+            showMessage(msgDiv, 'Random instance generated successfully!', 'success', 3000);
+        }
+
+        /**
+         * Generate a solvable instance (guaranteed to have a valid solution)
+         */
+        function generateSolvableInstance(numVars, numClauses, negProb, msgDiv) {
 
             // Step 1: Create a random solution
             const solution = {};
@@ -247,7 +332,7 @@ Solution will appear here</pre>
             // Display results
             displayResults();
 
-            showMessage(msgDiv, 'Instance generated successfully!', 'success', 3000);
+            showMessage(msgDiv, 'Solvable instance generated successfully!', 'success', 3000);
         }
 
         /**
@@ -330,18 +415,34 @@ Solution will appear here</pre>
                 JSON.stringify(generatedInstance, null, 2);
 
             // Display solution JSON
-            document.getElementById('solutionJson').textContent =
-                JSON.stringify(generatedSolution, null, 2);
+            if (generatedSolution) {
+                document.getElementById('solutionJson').textContent =
+                    JSON.stringify(generatedSolution, null, 2);
+            } else {
+                document.getElementById('solutionJson').textContent =
+                    'No solution generated (random instance - use solver to find solution)';
+            }
 
             // Display statistics
+            let statusText, statusColor, statusNote;
+            if (generatedSolution) {
+                statusText = '✓ SATISFIABLE';
+                statusColor = 'var(--accent-green)';
+                statusNote = 'This instance was generated to be satisfiable by construction';
+            } else {
+                statusText = '? UNKNOWN';
+                statusColor = 'var(--accent-purple)';
+                statusNote = 'This is a random instance - satisfiability unknown. Use the solver to verify.';
+            }
+
             const statsHtml = `
                 <div style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px;">
                     <div style="margin-bottom: 8px;"><strong>Dials:</strong> ${generatedInstance.num_dials}</div>
                     <div style="margin-bottom: 8px;"><strong>Negations:</strong> ${generatedInstance.negations.length}</div>
                     <div style="margin-bottom: 8px;"><strong>Clauses:</strong> ${generatedInstance.clauses.length}</div>
-                    <div style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: var(--accent-green);">✓ SATISFIABLE</span></div>
+                    <div style="margin-bottom: 8px;"><strong>Status:</strong> <span style="color: ${statusColor};">${statusText}</span></div>
                     <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 10px;">
-                        This instance was generated to be satisfiable by construction
+                        ${statusNote}
                     </div>
                 </div>
             `;
@@ -349,7 +450,19 @@ Solution will appear here</pre>
             document.getElementById('statsSection').style.display = 'block';
             document.getElementById('downloadSection').style.display = 'block';
 
-            // Visualize with solution
+            // Update download solution button state
+            const downloadSolutionBtn = document.querySelector('button[onclick="downloadSolution()"]');
+            if (generatedSolution) {
+                downloadSolutionBtn.disabled = false;
+                downloadSolutionBtn.style.opacity = '1';
+                downloadSolutionBtn.style.cursor = 'pointer';
+            } else {
+                downloadSolutionBtn.disabled = true;
+                downloadSolutionBtn.style.opacity = '0.5';
+                downloadSolutionBtn.style.cursor = 'not-allowed';
+            }
+
+            // Visualize with solution (if available)
             visualizeLock(generatedInstance, 'generatorCanvas', generatedSolution);
         }
 
@@ -370,8 +483,13 @@ Solution will appear here</pre>
          * Download generated solution
          */
         function downloadSolution() {
-            if (!generatedSolution || !generatedInstance) {
+            if (!generatedInstance) {
                 alert('Please generate an instance first');
+                return;
+            }
+
+            if (!generatedSolution) {
+                alert('No solution available for random instances.\n\nUse the Solver page to find a solution for this instance.');
                 return;
             }
 
