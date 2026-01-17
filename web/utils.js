@@ -37,12 +37,19 @@ function downloadJson(data, filename) {
     const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
+    a.style.display = 'none';
     a.href = url;
     a.download = filename;
     document.body.appendChild(a);
+
+    // Trigger download
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+
+    // Clean up after a delay to ensure download starts
+    setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }, 100);
 }
 
 /**
