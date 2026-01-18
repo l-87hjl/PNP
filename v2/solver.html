@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lock Solver - P vs NP</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="utils.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🔍 Lock Solver</h1>
+            <p class="subtitle">Upload and solve lock instances</p>
+            <a href="index.html" class="btn btn-secondary" style="margin-top: 15px;">← Back to Home</a>
+        </header>
+
+        <!-- Note about solver -->
+        <div class="card" style="background-color: rgba(88, 166, 255, 0.1); border-color: var(--accent-blue);">
+            <h3 style="color: var(--accent-blue); margin-bottom: 10px;">ℹ️ About This Solver</h3>
+            <p>
+                This demo uses a simple backtracking algorithm that works well for small instances (up to ~12 variables).
+                For larger instances or guaranteed optimal performance, use the Python backend with the
+                <strong>PySAT Glucose3 solver</strong>.
+            </p>
+        </div>
+
+        <!-- Solver Interface -->
+        <div class="builder-container">
+            <!-- Left Panel: Upload & Controls -->
+            <div class="control-panel">
+                <!-- Upload Section -->
+                <div class="control-section">
+                    <h3>Upload Instance</h3>
+                    <div class="form-group">
+                        <label for="fileInput" class="btn btn-secondary" style="width: 100%; cursor: pointer; text-align: center;">
+                            📁 Choose JSON File
+                        </label>
+                        <input type="file" id="fileInput" accept=".json" style="display: none;" onchange="loadInstance()">
+                    </div>
+                    <div id="uploadMessage"></div>
+                </div>
+
+                <!-- Instance Details -->
+                <div class="control-section" id="instanceSection" style="display: none;">
+                    <h3>Instance Details</h3>
+                    <div id="instanceDetails"></div>
+                </div>
+
+                <!-- Solve Section -->
+                <div class="control-section" id="solveSection" style="display: none;">
+                    <h3>Solve</h3>
+                    <button class="btn btn-primary" style="width: 100%;" onclick="solveInstance()">
+                        🔍 Solve Lock
+                    </button>
+                    <div id="solveMessage"></div>
+                </div>
+
+                <!-- Solution Display -->
+                <div class="control-section" id="solutionSection" style="display: none;">
+                    <h3>Solution</h3>
+                    <div id="solutionDisplay"></div>
+                </div>
+
+                <!-- Verification -->
+                <div class="control-section" id="verificationSection" style="display: none;">
+                    <h3>Verification</h3>
+                    <div id="verificationResults"></div>
+                </div>
+            </div>
+
+            <!-- Right Panel: Visualization -->
+            <div class="visualization-panel">
+                <h3>Lock Visualization</h3>
+                <canvas id="solverCanvas" width="700" height="600"></canvas>
+
+                <!-- Legend -->
+                <div class="legend">
+                    <h4>Legend:</h4>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3fb950; width: 30px; height: 30px; border-radius: 50%;"></div>
+                        <span>Dial set to TRUE (6)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #f85149; width: 30px; height: 30px; border-radius: 50%;"></div>
+                        <span>Dial set to FALSE (1)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #f85149;"></div>
+                        <span>Negation Link</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background-color: #3fb950;"></div>
+                        <span>OR Clause</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // Lock Solver JavaScript
+        // ============================================
+
+        // Global state
+        let currentInstance = null;
+        let currentSolution = null;
+
+        /**
+         * Load and parse uploaded instance file
+         */
+        async function loadInstance() {
+            const fileInput = document.getElementById('fileInput');
+            const msgDiv = document.getElementById('uploadMessage');
+
+            if (fileInput.files.length === 0) {
+                return;
+            }
+
+            try {
+                const instance = await parseJsonFile(fileInput.files[0]);
+
+                // Validate instance
+                const validation = validateLockInstance(instance);
+                if (!validation.valid) {
+                    showMessage(msgDiv, `Invalid instance: ${validation.error}`, 'error');
+                    return;
+                }
+
+                currentInstance = instance;
+                currentSolution = null;
+
+                // Display instance details
+                document.getElementById('instanceDetails').innerHTML = formatInstanceDisplay(instance);
+                document.getElementById('instanceSection').style.display = 'block';
+                document.getElementById('solveSection').style.display = 'block';
+                document.getElementById('solutionSection').style.display = 'none';
+                document.getElementById('verificationSection').style.display = 'none';
+
+                // Visualize instance
+                visualizeLock(instance, 'solverCanvas');
+
+                showMessage(msgDiv, `Instance loaded successfully (${instance.num_dials} dials)`, 'success');
+
+            } catch (error) {
+                showMessage(msgDiv, `Error: ${error.message}`, 'error');
+            }
+        }
+
+        /**
+         * Solve the loaded instance using backtracking
+         */
+        function solveInstance() {
+            const msgDiv = document.getElementById('solveMessage');
+
+            if (!currentInstance) {
+                showMessage(msgDiv, 'Please load an instance first', 'error');
+                return;
+            }
+
+            // Warn if instance is large
+            if (currentInstance.num_dials > 12) {
+                if (!confirm('This instance has more than 12 variables and may take a while. Continue?')) {
+                    return;
+                }
+            }
+
+            showMessage(msgDiv, 'Solving...', 'success', 0);
+
+            // Use setTimeout to allow UI to update
+            setTimeout(() => {
+                const startTime = performance.now();
+                const solution = backtrackingSolver(currentInstance);
+                const endTime = performance.now();
+                const solveTime = ((endTime - startTime) / 1000).toFixed(3);
+
+                if (solution) {
+                    currentSolution = {dial_values: solution};
+
+                    // Display solution
+                    displaySolution(solution, solveTime);
+
+                    // Verify solution
+                    verifySolutionAndDisplay();
+
+                    // Update visualization
+                    visualizeLock(currentInstance, 'solverCanvas', currentSolution);
+
+                    showMessage(msgDiv, `✓ SATISFIABLE (solved in ${solveTime}s)`, 'success', 5000);
+                } else {
+                    currentSolution = null;
+                    document.getElementById('solutionSection').style.display = 'none';
+                    document.getElementById('verificationSection').style.display = 'none';
+                    showMessage(msgDiv, `✗ UNSATISFIABLE (checked in ${solveTime}s)`, 'error', 0);
+                }
+            }, 100);
+        }
+
+        /**
+         * Simple backtracking SAT solver
+         * @param {Object} instance - Lock instance
+         * @returns {Object|null} - Solution dial values or null if UNSAT
+         */
+        function backtrackingSolver(instance) {
+            const assignment = {};
+
+            // Try to find a satisfying assignment using backtracking
+            function backtrack(dialIndex) {
+                // Base case: all dials assigned
+                if (dialIndex > instance.num_dials) {
+                    return checkAllConstraints(assignment, instance);
+                }
+
+                // Try both values for this dial (1 and 6)
+                for (const value of [1, 6]) {
+                    assignment[dialIndex] = value;
+
+                    // Check if this assignment violates any constraints so far
+                    if (isPartialAssignmentValid(assignment, instance, dialIndex)) {
+                        // Recursively assign remaining dials
+                        if (backtrack(dialIndex + 1)) {
+                            return true;
+                        }
+                    }
+                }
+
+                // Backtrack
+                delete assignment[dialIndex];
+                return false;
+            }
+
+            if (backtrack(1)) {
+                return assignment;
+            }
+            return null;
+        }
+
+        /**
+         * Check if partial assignment is valid (doesn't violate any constraints)
+         */
+        function isPartialAssignmentValid(assignment, instance, upToDial) {
+            // Check negations
+            for (const [dial1, dial2] of instance.negations) {
+                if (dial1 <= upToDial && dial2 <= upToDial) {
+                    const sum = assignment[dial1] + assignment[dial2];
+                    if (sum !== 7) {
+                        return false;
+                    }
+                }
+            }
+
+            // For clauses, we can only check if all dials are assigned
+            for (const [dial1, dial2, dial3] of instance.clauses) {
+                if (dial1 <= upToDial && dial2 <= upToDial && dial3 <= upToDial) {
+                    const sum = assignment[dial1] + assignment[dial2] + assignment[dial3];
+                    if (sum < 8) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Check all constraints against complete assignment
+         */
+        function checkAllConstraints(assignment, instance) {
+            // Check negations
+            for (const [dial1, dial2] of instance.negations) {
+                if (assignment[dial1] + assignment[dial2] !== 7) {
+                    return false;
+                }
+            }
+
+            // Check clauses
+            for (const [dial1, dial2, dial3] of instance.clauses) {
+                if (assignment[dial1] + assignment[dial2] + assignment[dial3] < 8) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Display the solution - SHOWS ALL DIALS
+         */
+        function displaySolution(solution, solveTime) {
+            let html = '<div style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px;">';
+            html += `<div style="margin-bottom: 10px; color: var(--accent-green);"><strong>✓ Solution Found</strong></div>`;
+            html += `<div style="margin-bottom: 10px; font-size: 0.9rem;">Solve time: ${solveTime}s</div>`;
+            html += '<div style="font-size: 0.9rem;"><strong>Dial Values (showing all ' + currentInstance.num_dials + ' dials):</strong></div>';
+            html += '<div style="max-height: 300px; overflow-y: auto; margin-top: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">';
+
+            // CRITICAL: Show ALL dials from 1 to num_dials
+            for (let dial = 1; dial <= currentInstance.num_dials; dial++) {
+                const value = solution[dial];
+
+                if (value === undefined || value === null) {
+                    // MISSING DIAL - This should never happen but we check
+                    html += `<div style="padding: 8px; border-radius: 4px; background-color: #fff3cd; border: 2px solid #ffc107;">`;
+                    html += `<strong>Dial ${dial}:</strong> <span style="color: #ff0000;">NOT SET ⚠️</span>`;
+                    html += `</div>`;
+                } else {
+                    const label = value === 6 ? 'TRUE' : 'FALSE';
+                    const bgColor = value === 6 ? 'rgba(63, 185, 80, 0.2)' : 'rgba(248, 81, 73, 0.2)';
+                    const borderColor = value === 6 ? 'var(--accent-green)' : 'var(--accent-red)';
+                    const textColor = value === 6 ? 'var(--accent-green)' : 'var(--accent-red)';
+
+                    html += `<div style="padding: 8px; border-radius: 4px; background-color: ${bgColor}; border: 2px solid ${borderColor};">`;
+                    html += `<strong>Dial ${dial}:</strong> ${value} <span style="color: ${textColor}; font-weight: bold;">(${label})</span>`;
+                    html += `</div>`;
+                }
+            }
+
+            html += '</div></div>';
+
+            document.getElementById('solutionDisplay').innerHTML = html;
+            document.getElementById('solutionSection').style.display = 'block';
+        }
+
+        /**
+         * Verify solution and display results
+         */
+        function verifySolutionAndDisplay() {
+            const verification = verifySolution(currentInstance, currentSolution);
+
+            let html = '<div style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px; max-height: 300px; overflow-y: auto;">';
+
+            if (verification.valid) {
+                html += '<div style="color: var(--accent-green); margin-bottom: 10px;"><strong>✓ All Constraints Satisfied</strong></div>';
+
+                // Show summary
+                html += `<div style="font-size: 0.9rem; margin-bottom: 8px;">✓ Binary pins: ${currentInstance.binary_pins.length} satisfied</div>`;
+                html += `<div style="font-size: 0.9rem; margin-bottom: 8px;">✓ Negations: ${currentInstance.negations.length} satisfied</div>`;
+                html += `<div style="font-size: 0.9rem;">✓ Clauses: ${currentInstance.clauses.length} satisfied</div>`;
+            } else {
+                html += '<div style="color: var(--accent-red); margin-bottom: 10px;"><strong>✗ Constraint Violations Found</strong></div>';
+
+                verification.errors.forEach(error => {
+                    html += `<div style="font-size: 0.85rem; color: var(--accent-red); margin-bottom: 4px;">✗ ${error}</div>`;
+                });
+            }
+
+            html += '</div>';
+
+            document.getElementById('verificationResults').innerHTML = html;
+            document.getElementById('verificationSection').style.display = 'block';
+        }
+
+        // Initialize visualization
+        window.onload = function() {
+            const canvas = document.getElementById('solverCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#8b949e';
+            ctx.font = '18px var(--font-sans)';
+            ctx.textAlign = 'center';
+            ctx.fillText('Upload an instance to begin', canvas.width / 2, canvas.height / 2);
+        };
+    </script>
+</body>
+</html>
