@@ -24,11 +24,41 @@ Current working implementation preserved as baseline. **DO NOT MODIFY.**
 **To use:** Open `v1/index.html` in your browser
 
 ### v2/ - Development Version
-Enhanced version with active development:
-- Web-safe generation parameters (avoiding phase transition)
-- Solver timeout protection
-- Runtime monitoring
-- Enhanced UI feedback
+Enhanced version with experimental features:
+
+**🎯 Web-Safe Generation Mode:**
+- New "Web-Safe" difficulty preset optimized for browser solving
+- Structural features for fast resolution:
+  - Unit clauses (forces immediate propagation)
+  - Binary clauses (creates implication chains)
+  - Pure literal bias (reduces search space)
+- Clause ratio ~3.0 (well below phase transition)
+- Consistent sub-second solve times
+- Always SAT (guaranteed solution)
+
+**📋 Rich Metadata System:**
+- Schema version tracking (v1.0)
+- Generator identification (name, version, seed)
+- Problem statistics (base variables, ratios, clause counts)
+- Generation parameters (difficulty, structural features)
+- Safety guards (web-safe mode, timeout hints)
+- Full reproducibility via seed
+
+**⚙️ Solver Enhancements:**
+- Decision counter (tracks branching decisions)
+- Timeout protection (10-second default)
+- Run metadata tracking:
+  - Outcome (SAT/UNSAT/TIMEOUT)
+  - Solve time in milliseconds
+  - Decision count
+  - Cutoff detection
+- Instance linking via seed
+
+**🎨 UI Improvements:**
+- Collapsible metadata display panels
+- Instance generation details
+- Solver performance metrics
+- Enhanced status messages with decision counts
 
 **To use:** Open `v2/index.html` in your browser
 
@@ -36,6 +66,7 @@ Enhanced version with active development:
 - v1 is locked - all future changes go to v2
 - Manual generator (web/manual.html) not yet versioned - remains in web/ directory
 - Once v2 stabilizes, v1 may be updated to the stable v2 version
+- Backwards compatible - works with instances without metadata
 
 ## Overview
 
