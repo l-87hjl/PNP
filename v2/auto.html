@@ -953,6 +953,10 @@ Solution will appear here</pre>
          * Download generated instance
          */
         function downloadInstance() {
+            console.log('downloadInstance() called');
+            console.log('generatedInstance:', generatedInstance);
+            console.log('downloadJson function:', typeof downloadJson);
+
             if (!generatedInstance) {
                 alert('Please generate an instance first');
                 return;
@@ -961,13 +965,19 @@ Solution will appear here</pre>
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             const difficulty = document.getElementById('difficulty').value;
             const baseVars = generatedInstance.num_dials - generatedInstance.negations.length;
+
+            console.log('Calling downloadJson with filename:', `${difficulty}_${baseVars}vars_instance_${timestamp}.json`);
             downloadJson(generatedInstance, `${difficulty}_${baseVars}vars_instance_${timestamp}.json`);
+            console.log('downloadJson called successfully');
         }
 
         /**
          * Download generated solution
          */
         function downloadSolution() {
+            console.log('downloadSolution() called');
+            console.log('generatedSolution:', generatedSolution);
+
             if (!generatedInstance) {
                 alert('Please generate an instance first');
                 return;
@@ -989,7 +999,9 @@ Solution will appear here</pre>
 
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
             const difficulty = document.getElementById('difficulty').value;
+            console.log('Calling downloadJson for solution');
             downloadJson(generatedSolution, `${difficulty}_solution_${timestamp}.json`);
+            console.log('downloadJson called successfully');
         }
 
         // Initialize visualization
