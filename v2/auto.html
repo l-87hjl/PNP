@@ -38,6 +38,7 @@
                             <option value="easy">Easy - Basic Challenge</option>
                             <option value="medium" selected>Medium - Genuinely Hard</option>
                             <option value="hard">Hard - Very Challenging</option>
+                            <option value="web-safe">Web-Safe - Fast Resolution (Recommended)</option>
                             <option value="phase-transition">Phase Transition - 50/50 SAT/UNSAT</option>
                         </select>
                     </div>
@@ -148,6 +149,7 @@ Solution will appear here</pre>
                 'easy': 'Basic challenge. 15% negations, used in 20% of literals. Ratio ~2.5. Always solvable with backtracking.',
                 'medium': 'Genuinely challenging. 30% negations, used in 40% of literals. Ratio ~3.5. Requires significant search.',
                 'hard': 'Very challenging. 40% negations, used in 50% of literals. Ratio ~4.2. Requires extensive search.',
+                'web-safe': 'RECOMMENDED for web use. Includes unit clauses and binary clauses for early propagation. Ratio ~3.0. Fast resolution (<1s typically). Always SAT.',
                 'phase-transition': 'HARDEST. 50% negations, used in 50% of literals. Ratio ~4.3. Approximately 50% will be UNSAT. At the computational complexity boundary.'
             };
 
@@ -179,6 +181,9 @@ Solution will appear here</pre>
                     break;
                 case 'hard':
                     instance = generateHardInstance(numVars);
+                    break;
+                case 'web-safe':
+                    instance = generateWebSafeInstance(numVars);
                     break;
                 case 'phase-transition':
                     instance = generatePhaseTransitionInstance(numVars);
@@ -443,6 +448,79 @@ Solution will appear here</pre>
         }
 
         /**
+         * Generate web-safe instance with structural features for fast resolution
+         */
+        function generateWebSafeInstance(numVars) {
+            const numNegations = Math.max(3, Math.floor(numVars * 0.40));
+            const targetRatio = 3.0;  // Well below phase transition
+            const negationPairFraction = 0.40;
+            const literalNegationProb = 0.3;
+            const coreSize = Math.max(8, Math.floor(numVars / 3));
+            const coreFraction = 0.5;
+
+            // Web-safe specific parameters
+            const unitClauseCount = 2;
+            const binaryClauseFraction = 0.2;  // 20% of clauses are binary
+            const pureLiteralBias = 0.15;      // 15% chance to create pure literals
+
+            const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
+
+            // Calculate clause counts
+            const totalClauseCount = Math.floor(numVars * targetRatio);
+            const binaryCount = Math.floor(totalClauseCount * binaryClauseFraction);
+            const ternaryCount = totalClauseCount - unitClauseCount - binaryCount;
+
+            // Generate different clause types
+            let clauses = [];
+
+            // Add unit clauses (forces immediate propagation)
+            clauses = clauses.concat(generateUnitClauses(unitClauseCount, totalDials));
+
+            // Add binary clauses (creates implication chains)
+            clauses = clauses.concat(generateBinaryClauses(binaryCount, totalDials, clauses));
+
+            // Add ternary clauses (standard 3-SAT)
+            clauses = clauses.concat(
+                generateClauses(numVars, ternaryCount, negationMap, literalNegationProb, true, coreSize, coreFraction)
+            );
+
+            const instance = {
+                num_dials: totalDials,
+                binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
+                negations: negationPairs,
+                clauses: clauses
+            };
+
+            // Add metadata
+            instance.meta = generateMetadata(
+                {
+                    difficultyPreset: 'web-safe',
+                    targetRatio: targetRatio,
+                    negationPairFraction: negationPairFraction,
+                    literalNegationProb: literalNegationProb,
+                    unitClausesEnabled: true,
+                    unitClauseCount: unitClauseCount,
+                    binaryClauseFraction: binaryClauseFraction,
+                    pureLiteralBias: pureLiteralBias,
+                    useCore: true,
+                    coreSize: coreSize,
+                    coreFraction: coreFraction,
+                    webSafeMode: true,
+                    maxSecondsHint: 5,
+                    generationStrategy: "early-propagation"
+                },
+                {
+                    baseVariables: numVars,
+                    totalDials: totalDials,
+                    negationPairs: negationPairs.length,
+                    clauseCount: clauses.length
+                }
+            );
+
+            return instance;
+        }
+
+        /**
          * Create negation pairs
          */
         function createNegationPairs(numVars, numNegations) {
@@ -504,6 +582,7 @@ Solution will appear here</pre>
 
                     structural_features: {
                         unit_clauses_enabled: params.unitClausesEnabled || false,
+                        unit_clause_count: params.unitClauseCount || 0,
                         binary_clause_fraction: params.binaryClauseFraction || 0,
                         pure_literal_bias: params.pureLiteralBias || 0,
                         core_variable_strategy: params.useCore || false,
@@ -518,6 +597,74 @@ Solution will appear here</pre>
                     }
                 }
             };
+        }
+
+        /**
+         * Generates unit clauses (single literal)
+         * Forces immediate propagation during solving
+         * @param {number} count - Number of unit clauses to generate
+         * @param {number} totalDials - Total number of dials available
+         * @returns {Array} Array of unit clauses
+         */
+        function generateUnitClauses(count, totalDials) {
+            const units = [];
+            const usedDials = new Set();
+
+            for (let i = 0; i < count; i++) {
+                let dial;
+                do {
+                    dial = Math.floor(Math.random() * totalDials) + 1;
+                } while (usedDials.has(dial));
+
+                usedDials.add(dial);
+                units.push([dial, dial, dial]);  // Represent as [dial, dial, dial] to maintain clause structure
+            }
+
+            return units;
+        }
+
+        /**
+         * Generates binary clauses (two literals)
+         * Creates implication chains for faster propagation
+         * @param {number} count - Number of binary clauses to generate
+         * @param {number} totalDials - Total number of dials available
+         * @param {Array} existingClauses - Already generated clauses (to avoid duplicates)
+         * @returns {Array} Array of binary clauses
+         */
+        function generateBinaryClauses(count, totalDials, existingClauses) {
+            const binaries = [];
+
+            for (let i = 0; i < count; i++) {
+                const dial1 = Math.floor(Math.random() * totalDials) + 1;
+                let dial2;
+                do {
+                    dial2 = Math.floor(Math.random() * totalDials) + 1;
+                } while (dial2 === dial1);
+
+                // Represent as [dial1, dial2, dial2] to maintain 3-element structure
+                binaries.push([dial1, dial2, dial2]);
+            }
+
+            return binaries;
+        }
+
+        /**
+         * Adjusts clause generation to create pure literals
+         * Variables that appear only positive or only negative
+         * @param {Array} variables - Array of variable indices
+         * @param {number} pureLiteralBias - Probability of creating pure literals
+         * @returns {Map} Map of variable to polarity ('positive' or 'negative')
+         */
+        function createPureLiterals(variables, pureLiteralBias) {
+            const pureLiterals = new Map();
+
+            for (const v of variables) {
+                if (Math.random() < pureLiteralBias) {
+                    pureLiterals.set(v, Math.random() < 0.5 ? 'positive' : 'negative');
+                }
+            }
+
+            return pureLiterals;
         }
 
         /**
