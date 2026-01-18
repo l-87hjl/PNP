@@ -211,13 +211,41 @@ Solution will appear here</pre>
          */
         function generateTrivialInstance(numVars) {
             const numClauses = Math.floor(numVars * 1.5);
+            const targetRatio = 1.5;
 
-            return {
+            const instance = {
                 num_dials: numVars,
                 binary_pins: Array.from({length: numVars}, (_, i) => i + 1),
                 negations: [],
                 clauses: generateClauses(numVars, numClauses, new Map(), 0, false)
             };
+
+            // Add metadata
+            instance.meta = generateMetadata(
+                {
+                    difficultyPreset: 'trivial',
+                    targetRatio: targetRatio,
+                    negationPairFraction: 0,
+                    literalNegationProb: 0,
+                    unitClausesEnabled: false,
+                    binaryClauseFraction: 0,
+                    pureLiteralBias: 0,
+                    useCore: false,
+                    coreSize: 0,
+                    coreFraction: 0,
+                    webSafeMode: true,
+                    maxSecondsHint: 5,
+                    generationStrategy: "random"
+                },
+                {
+                    baseVariables: numVars,
+                    totalDials: numVars,
+                    negationPairs: 0,
+                    clauseCount: numClauses
+                }
+            );
+
+            return instance;
         }
 
         /**
@@ -226,15 +254,45 @@ Solution will appear here</pre>
         function generateEasyInstance(numVars) {
             const numNegations = Math.max(1, Math.floor(numVars * 0.15));
             const numClauses = Math.floor(numVars * 2.5);
+            const targetRatio = 2.5;
+            const negationPairFraction = 0.15;
+            const literalNegationProb = 0.2;
 
             const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
 
-            return {
+            const instance = {
                 num_dials: totalDials,
                 binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
                 negations: negationPairs,
-                clauses: generateClauses(numVars, numClauses, negationMap, 0.2, false)
+                clauses: generateClauses(numVars, numClauses, negationMap, literalNegationProb, false)
             };
+
+            // Add metadata
+            instance.meta = generateMetadata(
+                {
+                    difficultyPreset: 'easy',
+                    targetRatio: targetRatio,
+                    negationPairFraction: negationPairFraction,
+                    literalNegationProb: literalNegationProb,
+                    unitClausesEnabled: false,
+                    binaryClauseFraction: 0,
+                    pureLiteralBias: 0,
+                    useCore: false,
+                    coreSize: 0,
+                    coreFraction: 0,
+                    webSafeMode: true,
+                    maxSecondsHint: 5,
+                    generationStrategy: "random"
+                },
+                {
+                    baseVariables: numVars,
+                    totalDials: totalDials,
+                    negationPairs: negationPairs.length,
+                    clauseCount: numClauses
+                }
+            );
+
+            return instance;
         }
 
         /**
@@ -243,16 +301,47 @@ Solution will appear here</pre>
         function generateMediumInstance(numVars) {
             const numNegations = Math.max(2, Math.floor(numVars * 0.30));
             const numClauses = Math.floor(numVars * 3.5);
+            const targetRatio = 3.5;
+            const negationPairFraction = 0.30;
+            const literalNegationProb = 0.4;
+            const coreSize = Math.max(8, Math.floor(numVars / 3));
+            const coreFraction = 0.5;
 
             const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
-            const coreSize = Math.max(8, Math.floor(numVars / 3));
 
-            return {
+            const instance = {
                 num_dials: totalDials,
                 binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
                 negations: negationPairs,
-                clauses: generateClauses(numVars, numClauses, negationMap, 0.4, true, coreSize, 0.5)
+                clauses: generateClauses(numVars, numClauses, negationMap, literalNegationProb, true, coreSize, coreFraction)
             };
+
+            // Add metadata
+            instance.meta = generateMetadata(
+                {
+                    difficultyPreset: 'medium',
+                    targetRatio: targetRatio,
+                    negationPairFraction: negationPairFraction,
+                    literalNegationProb: literalNegationProb,
+                    unitClausesEnabled: false,
+                    binaryClauseFraction: 0,
+                    pureLiteralBias: 0,
+                    useCore: true,
+                    coreSize: coreSize,
+                    coreFraction: coreFraction,
+                    webSafeMode: true,
+                    maxSecondsHint: 5,
+                    generationStrategy: "random"
+                },
+                {
+                    baseVariables: numVars,
+                    totalDials: totalDials,
+                    negationPairs: negationPairs.length,
+                    clauseCount: numClauses
+                }
+            );
+
+            return instance;
         }
 
         /**
@@ -261,16 +350,47 @@ Solution will appear here</pre>
         function generateHardInstance(numVars) {
             const numNegations = Math.max(3, Math.floor(numVars * 0.40));
             const numClauses = Math.floor(numVars * 4.2);
+            const targetRatio = 4.2;
+            const negationPairFraction = 0.40;
+            const literalNegationProb = 0.5;
+            const coreSize = Math.max(8, Math.floor(numVars / 4));
+            const coreFraction = 0.7;
 
             const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
-            const coreSize = Math.max(8, Math.floor(numVars / 4));
 
-            return {
+            const instance = {
                 num_dials: totalDials,
                 binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
                 negations: negationPairs,
-                clauses: generateClauses(numVars, numClauses, negationMap, 0.5, true, coreSize, 0.7)
+                clauses: generateClauses(numVars, numClauses, negationMap, literalNegationProb, true, coreSize, coreFraction)
             };
+
+            // Add metadata
+            instance.meta = generateMetadata(
+                {
+                    difficultyPreset: 'hard',
+                    targetRatio: targetRatio,
+                    negationPairFraction: negationPairFraction,
+                    literalNegationProb: literalNegationProb,
+                    unitClausesEnabled: false,
+                    binaryClauseFraction: 0,
+                    pureLiteralBias: 0,
+                    useCore: true,
+                    coreSize: coreSize,
+                    coreFraction: coreFraction,
+                    webSafeMode: true,
+                    maxSecondsHint: 5,
+                    generationStrategy: "random"
+                },
+                {
+                    baseVariables: numVars,
+                    totalDials: totalDials,
+                    negationPairs: negationPairs.length,
+                    clauseCount: numClauses
+                }
+            );
+
+            return instance;
         }
 
         /**
@@ -279,16 +399,47 @@ Solution will appear here</pre>
         function generatePhaseTransitionInstance(numVars) {
             const numNegations = Math.max(4, Math.floor(numVars * 0.50));
             const numClauses = Math.floor(numVars * 4.3);
+            const targetRatio = 4.3;
+            const negationPairFraction = 0.50;
+            const literalNegationProb = 0.5;
+            const coreSize = Math.max(6, Math.floor(numVars / 5));
+            const coreFraction = 0.8;
 
             const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
-            const coreSize = Math.max(6, Math.floor(numVars / 5));
 
-            return {
+            const instance = {
                 num_dials: totalDials,
                 binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
                 negations: negationPairs,
-                clauses: generateClauses(numVars, numClauses, negationMap, 0.5, true, coreSize, 0.8)
+                clauses: generateClauses(numVars, numClauses, negationMap, literalNegationProb, true, coreSize, coreFraction)
             };
+
+            // Add metadata
+            instance.meta = generateMetadata(
+                {
+                    difficultyPreset: 'phase-transition',
+                    targetRatio: targetRatio,
+                    negationPairFraction: negationPairFraction,
+                    literalNegationProb: literalNegationProb,
+                    unitClausesEnabled: false,
+                    binaryClauseFraction: 0,
+                    pureLiteralBias: 0,
+                    useCore: true,
+                    coreSize: coreSize,
+                    coreFraction: coreFraction,
+                    webSafeMode: true,
+                    maxSecondsHint: 5,
+                    generationStrategy: "random"
+                },
+                {
+                    baseVariables: numVars,
+                    totalDials: totalDials,
+                    negationPairs: negationPairs.length,
+                    clauseCount: numClauses
+                }
+            );
+
+            return instance;
         }
 
         /**
@@ -315,6 +466,57 @@ Solution will appear here</pre>
                 totalDials: nextDial - 1,
                 negationMap: negationMap,
                 negationPairs: negationPairs
+            };
+        }
+
+        /**
+         * Generates metadata for a puzzle instance
+         * @param {Object} params - Generation parameters used
+         * @param {Object} stats - Computed statistics about the instance
+         * @returns {Object} Metadata object
+         */
+        function generateMetadata(params, stats) {
+            return {
+                schema_version: "1.0",
+                created_utc: new Date().toISOString(),
+
+                generator: {
+                    name: "PNP-web-generator",
+                    version: "2.0.0",
+                    mode: params.difficultyPreset || "custom",
+                    seed: params.seed || Math.floor(Math.random() * 1e9)
+                },
+
+                problem_view: {
+                    base_variables: stats.baseVariables,
+                    total_dials: stats.totalDials,
+                    negation_pairs: stats.negationPairs,
+                    clauses: stats.clauseCount,
+                    clause_to_base_ratio: parseFloat((stats.clauseCount / stats.baseVariables).toFixed(2)),
+                    clause_to_dial_ratio: parseFloat((stats.clauseCount / stats.totalDials).toFixed(2))
+                },
+
+                generation_params: {
+                    difficulty_preset: params.difficultyPreset,
+                    target_clause_to_base_ratio: params.targetRatio,
+                    negation_pair_fraction: params.negationPairFraction,
+                    literal_negation_probability: params.literalNegationProb,
+
+                    structural_features: {
+                        unit_clauses_enabled: params.unitClausesEnabled || false,
+                        binary_clause_fraction: params.binaryClauseFraction || 0,
+                        pure_literal_bias: params.pureLiteralBias || 0,
+                        core_variable_strategy: params.useCore || false,
+                        core_size: params.coreSize || 0,
+                        core_fraction: params.coreFraction || 0
+                    },
+
+                    guards: {
+                        web_safe_mode: params.webSafeMode !== undefined ? params.webSafeMode : true,
+                        max_seconds_hint: params.maxSecondsHint || 5,
+                        generation_strategy: params.generationStrategy || "random"
+                    }
+                }
             };
         }
 
