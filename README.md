@@ -11,6 +11,32 @@ Try the tools online without any installation:
 - ⚡ **Automatic Generator** - Generate random instances with parameters
 - 🔍 **Lock Solver** - Upload and solve instances in your browser
 
+## Version Structure
+
+The web interface is maintained in two versions:
+
+### v1/ - Stable Reference Version
+Current working implementation preserved as baseline. **DO NOT MODIFY.**
+- Known-good automatic generator
+- Functional browser-based solver
+- Use this as reference for comparison and rollback
+
+**To use:** Open `v1/index.html` in your browser
+
+### v2/ - Development Version
+Enhanced version with active development:
+- Web-safe generation parameters (avoiding phase transition)
+- Solver timeout protection
+- Runtime monitoring
+- Enhanced UI feedback
+
+**To use:** Open `v2/index.html` in your browser
+
+**Important Notes:**
+- v1 is locked - all future changes go to v2
+- Manual generator (web/manual.html) not yet versioned - remains in web/ directory
+- Once v2 stabilizes, v1 may be updated to the stable v2 version
+
 ## Overview
 
 This project provides tools to create, solve, and visualize constraint-based locks where:
@@ -408,19 +434,31 @@ Solutions are stored as JSON files mapping dial indices to values:
 
 ```
 PNP/
+├── v1/                          # Stable reference version (DO NOT MODIFY)
+│   ├── index.html               # Landing page
+│   ├── auto.html                # Automatic generator
+│   ├── solver.html              # Browser-based solver
+│   ├── utils.js                 # Shared utilities
+│   └── styles.css               # Responsive dark theme
+├── v2/                          # Development version (active work)
+│   ├── index.html               # Landing page
+│   ├── auto.html                # Automatic generator
+│   ├── solver.html              # Browser-based solver
+│   ├── utils.js                 # Shared utilities
+│   └── styles.css               # Responsive dark theme
+├── web/                         # Original web files
+│   ├── index.html               # Landing page
+│   ├── manual.html              # Manual lock builder (not yet versioned)
+│   ├── auto.html                # Automatic generator
+│   ├── solver.html              # Browser-based solver
+│   ├── utils.js                 # Shared utilities
+│   └── styles.css               # Responsive dark theme
 ├── src/
 │   ├── __init__.py              # Package initialization
 │   ├── lock_types.py            # Core data structures
 │   ├── lock_generator.py        # Interactive/automatic generator
 │   ├── lock_solver.py           # SAT solver with PySAT
 │   └── lock_verifier.py         # Solution verification
-├── web/
-│   ├── index.html               # Landing page
-│   ├── manual.html              # Interactive lock builder
-│   ├── auto.html                # Automatic generator
-│   ├── solver.html              # Browser-based solver
-│   ├── utils.js                 # Shared utilities
-│   └── styles.css               # Responsive dark theme
 ├── examples/
 │   ├── instances/               # Sample lock instances
 │   ├── solutions/               # Sample solutions

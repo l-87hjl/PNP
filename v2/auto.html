@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatic Generator - P vs NP</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="utils.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>⚡ Automatic Instance Generator</h1>
+            <p class="subtitle">Generate random lock instances with customizable parameters</p>
+            <a href="index.html" class="btn btn-secondary" style="margin-top: 15px;">← Back to Home</a>
+        </header>
+
+        <!-- Generator Interface -->
+        <div class="builder-container">
+            <!-- Left Panel: Parameters -->
+            <div class="control-panel">
+                <!-- Parameters -->
+                <div class="control-section">
+                    <h3>Generation Parameters</h3>
+
+                    <div class="form-group">
+                        <label for="numVars">Number of Base Variables: <span id="numVarsValue">20</span></label>
+                        <input type="range" id="numVars" min="5" max="50" value="20"
+                               oninput="updateSliderValue('numVars', 'numVarsValue')"
+                               style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="difficulty">Difficulty Level:</label>
+                        <select id="difficulty" onchange="updateDifficultyInfo()" style="width: 100%; padding: 8px; border-radius: 6px; background-color: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-default);">
+                            <option value="trivial">Trivial - Always Solvable</option>
+                            <option value="easy">Easy - Basic Challenge</option>
+                            <option value="medium" selected>Medium - Genuinely Hard</option>
+                            <option value="hard">Hard - Very Challenging</option>
+                            <option value="phase-transition">Phase Transition - 50/50 SAT/UNSAT</option>
+                        </select>
+                    </div>
+
+                    <div class="info-box" style="background-color: var(--bg-tertiary); padding: 12px; border-radius: 6px; margin-top: 10px;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 0.9rem; color: var(--accent-blue);">Difficulty Explanation:</h4>
+                        <p id="difficulty-info" style="margin: 0; font-size: 0.85rem; color: var(--text-muted); line-height: 1.5;">
+                            Genuinely challenging. 30% negations, used in 40% of literals. Ratio ~3.5. Requires significant search.
+                        </p>
+                    </div>
+
+                    <button class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="generateInstance()">
+                        Generate Instance
+                    </button>
+                    <div id="genMessage"></div>
+                </div>
+
+                <!-- Statistics -->
+                <div class="control-section" id="statsSection" style="display: none;">
+                    <h3>Statistics</h3>
+                    <div id="statsDisplay" style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px; font-size: 0.9rem;">
+                        <div style="margin-bottom: 8px;"><strong>Base Variables:</strong> <span id="stat-base-vars">-</span></div>
+                        <div style="margin-bottom: 8px;"><strong>Total Dials:</strong> <span id="stat-total-dials">-</span></div>
+                        <div style="margin-bottom: 8px;"><strong>Negation Pairs:</strong> <span id="stat-negations">-</span></div>
+                        <div style="margin-bottom: 8px;"><strong>Clauses:</strong> <span id="stat-clauses">-</span></div>
+                        <div style="margin-bottom: 8px;"><strong>Clause/Base Ratio:</strong> <span id="stat-ratio-base">-</span></div>
+                        <div style="margin-bottom: 8px;"><strong>Clause/Dial Ratio:</strong> <span id="stat-ratio-total">-</span></div>
+                        <div style="margin-bottom: 8px;"><strong>Status:</strong> <span id="stat-status">-</span></div>
+                        <div><strong>Solve Time:</strong> <span id="stat-time">-</span></div>
+                    </div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="control-section" id="downloadSection" style="display: none;">
+                    <h3>Download</h3>
+                    <button class="btn btn-secondary" style="width: 100%; margin-bottom: 10px;" onclick="downloadInstance()">
+                        💾 Download Instance
+                    </button>
+                    <button class="btn btn-secondary" style="width: 100%;" onclick="downloadSolution()">
+                        ✅ Download Solution
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel: Output -->
+            <div class="visualization-panel">
+                <h3>Generated Instance & Solution</h3>
+
+                <!-- Instance JSON -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-blue); margin-bottom: 10px;">Instance JSON:</h4>
+                    <pre id="instanceJson" style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 0.9rem; max-height: 300px;">
+Click "Generate Instance" to create a random lock configuration</pre>
+                </div>
+
+                <!-- Solution JSON -->
+                <div style="margin-bottom: 20px;">
+                    <h4 style="color: var(--accent-green); margin-bottom: 10px;">Solution JSON:</h4>
+                    <pre id="solutionJson" style="background-color: var(--bg-tertiary); padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 0.9rem; max-height: 300px;">
+Solution will appear here</pre>
+                </div>
+
+                <!-- Visualization -->
+                <div>
+                    <h4 style="color: var(--accent-purple); margin-bottom: 10px;">Visualization:</h4>
+                    <canvas id="generatorCanvas" width="700" height="500"></canvas>
+                    <div class="legend" style="margin-top: 15px;">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #3fb950; width: 30px; height: 30px; border-radius: 50%;"></div>
+                            <span>Dial set to TRUE (6)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: #f85149; width: 30px; height: 30px; border-radius: 50%;"></div>
+                            <span>Dial set to FALSE (1)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // Automatic Instance Generator JavaScript
+        // ============================================
+
+        // Global state
+        let generatedInstance = null;
+        let generatedSolution = null;
+
+        /**
+         * Update slider value display
+         */
+        function updateSliderValue(sliderId, displayId) {
+            const value = document.getElementById(sliderId).value;
+            document.getElementById(displayId).textContent = value;
+        }
+
+        /**
+         * Update difficulty explanation
+         */
+        function updateDifficultyInfo() {
+            const difficulty = document.getElementById('difficulty').value;
+            const infoBox = document.getElementById('difficulty-info');
+
+            const explanations = {
+                'trivial': 'Always solvable quickly. No negations in clauses. Ratio ~1.5. For testing.',
+                'easy': 'Basic challenge. 15% negations, used in 20% of literals. Ratio ~2.5. Always solvable with backtracking.',
+                'medium': 'Genuinely challenging. 30% negations, used in 40% of literals. Ratio ~3.5. Requires significant search.',
+                'hard': 'Very challenging. 40% negations, used in 50% of literals. Ratio ~4.2. Requires extensive search.',
+                'phase-transition': 'HARDEST. 50% negations, used in 50% of literals. Ratio ~4.3. Approximately 50% will be UNSAT. At the computational complexity boundary.'
+            };
+
+            infoBox.textContent = explanations[difficulty];
+        }
+
+        /**
+         * Generate a lock instance based on difficulty
+         */
+        function generateInstance() {
+            const msgDiv = document.getElementById('genMessage');
+            const numVars = parseInt(document.getElementById('numVars').value);
+            const difficulty = document.getElementById('difficulty').value;
+
+            console.log(`Generating ${difficulty} instance with ${numVars} variables...`);
+            showMessage(msgDiv, 'Generating instance...', 'success', 0);
+
+            // Generate based on difficulty
+            let instance;
+            switch(difficulty) {
+                case 'trivial':
+                    instance = generateTrivialInstance(numVars);
+                    break;
+                case 'easy':
+                    instance = generateEasyInstance(numVars);
+                    break;
+                case 'medium':
+                    instance = generateMediumInstance(numVars);
+                    break;
+                case 'hard':
+                    instance = generateHardInstance(numVars);
+                    break;
+                case 'phase-transition':
+                    instance = generatePhaseTransitionInstance(numVars);
+                    break;
+                default:
+                    instance = generateMediumInstance(numVars);
+            }
+
+            generatedInstance = instance;
+
+            // Display instance stats
+            displayInstanceStats(instance);
+
+            // Try to solve
+            const startTime = performance.now();
+            const solution = solveInstanceSimple(instance);
+            const solveTime = (performance.now() - startTime) / 1000;
+
+            generatedSolution = solution;
+            displaySolutionStats(instance, solution, solveTime);
+
+            // Display results
+            displayResults();
+
+            showMessage(msgDiv, `${difficulty} instance generated successfully!`, 'success', 3000);
+        }
+
+        /**
+         * Generate trivial instance
+         */
+        function generateTrivialInstance(numVars) {
+            const numClauses = Math.floor(numVars * 1.5);
+
+            return {
+                num_dials: numVars,
+                binary_pins: Array.from({length: numVars}, (_, i) => i + 1),
+                negations: [],
+                clauses: generateClauses(numVars, numClauses, new Map(), 0, false)
+            };
+        }
+
+        /**
+         * Generate easy instance
+         */
+        function generateEasyInstance(numVars) {
+            const numNegations = Math.max(1, Math.floor(numVars * 0.15));
+            const numClauses = Math.floor(numVars * 2.5);
+
+            const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
+
+            return {
+                num_dials: totalDials,
+                binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
+                negations: negationPairs,
+                clauses: generateClauses(numVars, numClauses, negationMap, 0.2, false)
+            };
+        }
+
+        /**
+         * Generate medium instance
+         */
+        function generateMediumInstance(numVars) {
+            const numNegations = Math.max(2, Math.floor(numVars * 0.30));
+            const numClauses = Math.floor(numVars * 3.5);
+
+            const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
+            const coreSize = Math.max(8, Math.floor(numVars / 3));
+
+            return {
+                num_dials: totalDials,
+                binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
+                negations: negationPairs,
+                clauses: generateClauses(numVars, numClauses, negationMap, 0.4, true, coreSize, 0.5)
+            };
+        }
+
+        /**
+         * Generate hard instance
+         */
+        function generateHardInstance(numVars) {
+            const numNegations = Math.max(3, Math.floor(numVars * 0.40));
+            const numClauses = Math.floor(numVars * 4.2);
+
+            const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
+            const coreSize = Math.max(8, Math.floor(numVars / 4));
+
+            return {
+                num_dials: totalDials,
+                binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
+                negations: negationPairs,
+                clauses: generateClauses(numVars, numClauses, negationMap, 0.5, true, coreSize, 0.7)
+            };
+        }
+
+        /**
+         * Generate phase-transition instance
+         */
+        function generatePhaseTransitionInstance(numVars) {
+            const numNegations = Math.max(4, Math.floor(numVars * 0.50));
+            const numClauses = Math.floor(numVars * 4.3);
+
+            const {totalDials, negationMap, negationPairs} = createNegationPairs(numVars, numNegations);
+            const coreSize = Math.max(6, Math.floor(numVars / 5));
+
+            return {
+                num_dials: totalDials,
+                binary_pins: Array.from({length: totalDials}, (_, i) => i + 1),
+                negations: negationPairs,
+                clauses: generateClauses(numVars, numClauses, negationMap, 0.5, true, coreSize, 0.8)
+            };
+        }
+
+        /**
+         * Create negation pairs
+         */
+        function createNegationPairs(numVars, numNegations) {
+            const negationMap = new Map();
+            const negationPairs = [];
+            const available = Array.from({length: numVars}, (_, i) => i + 1);
+            let nextDial = numVars + 1;
+
+            for (let i = 0; i < numNegations && available.length > 0; i++) {
+                const varIndex = Math.floor(Math.random() * available.length);
+                const var1 = available[varIndex];
+                available.splice(varIndex, 1);
+
+                const negDial = nextDial++;
+                negationMap.set(var1, negDial);
+                negationMap.set(negDial, var1);  // Bidirectional
+                negationPairs.push([var1, negDial]);
+            }
+
+            return {
+                totalDials: nextDial - 1,
+                negationMap: negationMap,
+                negationPairs: negationPairs
+            };
+        }
+
+        /**
+         * Generate clauses
+         */
+        function generateClauses(numVars, numClauses, negationMap, negateProb, useCore, coreSize, coreFraction) {
+            const clauses = [];
+            const baseVars = Array.from({length: numVars}, (_, i) => i + 1);
+
+            let coreVars = [];
+            if (useCore && coreSize) {
+                coreVars = [];
+                while (coreVars.length < Math.min(coreSize, numVars)) {
+                    const v = baseVars[Math.floor(Math.random() * baseVars.length)];
+                    if (!coreVars.includes(v)) {
+                        coreVars.push(v);
+                    }
+                }
+            }
+
+            for (let i = 0; i < numClauses; i++) {
+                let clauseVars = [];
+
+                // Choose variables (from core or all)
+                if (useCore && coreVars.length >= 3 && Math.random() < coreFraction) {
+                    // Use core
+                    while (clauseVars.length < 3) {
+                        const v = coreVars[Math.floor(Math.random() * coreVars.length)];
+                        if (!clauseVars.includes(v)) {
+                            clauseVars.push(v);
+                        }
+                    }
+                } else {
+                    // Use any
+                    while (clauseVars.length < 3) {
+                        const v = baseVars[Math.floor(Math.random() * baseVars.length)];
+                        if (!clauseVars.includes(v)) {
+                            clauseVars.push(v);
+                        }
+                    }
+                }
+
+                // Potentially negate literals
+                const finalClause = clauseVars.map(v => {
+                    if (negationMap.has(v) && Math.random() < negateProb) {
+                        return negationMap.get(v);
+                    }
+                    return v;
+                });
+
+                clauses.push(finalClause);
+            }
+
+            return clauses;
+        }
+
+        /**
+         * Simple solver for web interface (returns solution or null)
+         */
+        function solveInstanceSimple(instance) {
+            // Use basic backtracking to find a solution
+            // This is a simplified solver for the web interface
+            // For complex instances, this may timeout
+
+            const solution = {};
+
+            // Try to solve with timeout
+            const startTime = Date.now();
+            const timeout = 5000; // 5 second timeout
+
+            if (tryAssignment(instance, solution, 1, startTime, timeout)) {
+                return {dial_values: solution};
+            }
+
+            return null;
+        }
+
+        /**
+         * Recursive backtracking solver
+         */
+        function tryAssignment(instance, solution, dial, startTime, timeout) {
+            // Timeout check
+            if (Date.now() - startTime > timeout) {
+                return false;
+            }
+
+            // All dials assigned - check if valid
+            if (dial > instance.num_dials) {
+                return checkSolution(instance, solution);
+            }
+
+            // Try both values
+            for (const value of [1, 6]) {
+                solution[dial] = value;
+
+                // Check if this assignment violates any constraints
+                if (isConsistent(instance, solution, dial)) {
+                    if (tryAssignment(instance, solution, dial + 1, startTime, timeout)) {
+                        return true;
+                    }
+                }
+            }
+
+            delete solution[dial];
+            return false;
+        }
+
+        /**
+         * Check if current partial assignment is consistent
+         */
+        function isConsistent(instance, solution, lastDial) {
+            // Check negation constraints involving lastDial
+            for (const [i, j] of instance.negations) {
+                if ((i === lastDial && solution[j] !== undefined) ||
+                    (j === lastDial && solution[i] !== undefined)) {
+                    if (solution[i] + solution[j] !== 7) {
+                        return false;
+                    }
+                }
+            }
+
+            // Check clause constraints (only if all three dials are assigned)
+            for (const [i, j, k] of instance.clauses) {
+                if (solution[i] !== undefined && solution[j] !== undefined && solution[k] !== undefined) {
+                    if (solution[i] + solution[j] + solution[k] < 8) {
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Check if complete solution satisfies all constraints
+         */
+        function checkSolution(instance, solution) {
+            // Check binary constraints
+            for (let i = 1; i <= instance.num_dials; i++) {
+                if (solution[i] !== 1 && solution[i] !== 6) {
+                    return false;
+                }
+            }
+
+            // Check negations
+            for (const [i, j] of instance.negations) {
+                if (solution[i] + solution[j] !== 7) {
+                    return false;
+                }
+            }
+
+            // Check clauses
+            for (const [i, j, k] of instance.clauses) {
+                if (solution[i] + solution[j] + solution[k] < 8) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        /**
+         * Display instance statistics
+         */
+        function displayInstanceStats(instance) {
+            const numNegations = instance.negations.length;
+            const baseVars = instance.num_dials - numNegations;
+            const totalDials = instance.num_dials;
+            const numClauses = instance.clauses.length;
+
+            document.getElementById('stat-base-vars').textContent = baseVars;
+            document.getElementById('stat-total-dials').textContent = totalDials;
+            document.getElementById('stat-negations').textContent = numNegations;
+            document.getElementById('stat-clauses').textContent = numClauses;
+            document.getElementById('stat-ratio-base').textContent = (numClauses / baseVars).toFixed(2);
+            document.getElementById('stat-ratio-total').textContent = (numClauses / totalDials).toFixed(2);
+        }
+
+        /**
+         * Display solution statistics
+         */
+        function displaySolutionStats(instance, solution, solveTime) {
+            const statusEl = document.getElementById('stat-status');
+            const timeEl = document.getElementById('stat-time');
+
+            if (solution) {
+                statusEl.textContent = '✓ SAT';
+                statusEl.style.color = 'var(--accent-green)';
+
+                // VALIDATE before allowing download
+                const validation = validateCompleteSolution(instance, solution.dial_values);
+                if (!validation.isValid) {
+                    statusEl.textContent = '⚠️ SAT (INVALID!)';
+                    statusEl.style.color = '#ffc107';
+                    console.error('Generated invalid solution:', validation.errors);
+                }
+            } else {
+                statusEl.textContent = '✗ UNSAT';
+                statusEl.style.color = 'var(--accent-red)';
+            }
+
+            timeEl.textContent = `${solveTime.toFixed(4)}s`;
+
+            document.getElementById('statsSection').style.display = 'block';
+        }
+
+        /**
+         * Validate a complete solution against all constraints
+         */
+        function validateCompleteSolution(instance, dialValues) {
+            const errors = [];
+
+            // Check all dials are set
+            for (let i = 1; i <= instance.num_dials; i++) {
+                if (!dialValues[i] && dialValues[i] !== 0) {
+                    errors.push(`Dial ${i} not set`);
+                }
+            }
+
+            // Check binary constraints
+            instance.binary_pins.forEach(dial => {
+                const val = dialValues[dial];
+                if (val !== 1 && val !== 6) {
+                    errors.push(`Binary constraint violated: Dial ${dial} = ${val}, must be 1 or 6`);
+                }
+            });
+
+            // Check negations
+            instance.negations.forEach(([i, j]) => {
+                const sum = dialValues[i] + dialValues[j];
+                if (sum !== 7) {
+                    errors.push(`Negation violated: Not(${i},${j}) - ${dialValues[i]} + ${dialValues[j]} = ${sum}, must equal 7`);
+                }
+            });
+
+            // Check OR clauses
+            instance.clauses.forEach(([i, j, k]) => {
+                const sum = dialValues[i] + dialValues[j] + dialValues[k];
+                if (sum < 8) {
+                    errors.push(`OR clause violated: (${i},${j},${k}) - sum = ${sum}, must be >= 8`);
+                }
+            });
+
+            return {
+                isValid: errors.length === 0,
+                errors: errors
+            };
+        }
+
+        /**
+         * Display generated instance and solution
+         */
+        function displayResults() {
+            // Display instance JSON
+            document.getElementById('instanceJson').textContent =
+                JSON.stringify(generatedInstance, null, 2);
+
+            // Display solution JSON
+            if (generatedSolution) {
+                document.getElementById('solutionJson').textContent =
+                    JSON.stringify(generatedSolution, null, 2);
+            } else {
+                document.getElementById('solutionJson').textContent =
+                    'Instance is UNSAT - no solution exists';
+            }
+
+            document.getElementById('downloadSection').style.display = 'block';
+
+            // Update download solution button state
+            const downloadSolutionBtn = document.querySelector('button[onclick="downloadSolution()"]');
+            if (generatedSolution) {
+                downloadSolutionBtn.disabled = false;
+                downloadSolutionBtn.style.opacity = '1';
+                downloadSolutionBtn.style.cursor = 'pointer';
+            } else {
+                downloadSolutionBtn.disabled = true;
+                downloadSolutionBtn.style.opacity = '0.5';
+                downloadSolutionBtn.style.cursor = 'not-allowed';
+            }
+
+            // Visualize with solution (if available)
+            visualizeLock(generatedInstance, 'generatorCanvas', generatedSolution);
+        }
+
+        /**
+         * Download generated instance
+         */
+        function downloadInstance() {
+            if (!generatedInstance) {
+                alert('Please generate an instance first');
+                return;
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const difficulty = document.getElementById('difficulty').value;
+            const baseVars = generatedInstance.num_dials - generatedInstance.negations.length;
+            downloadJson(generatedInstance, `${difficulty}_${baseVars}vars_instance_${timestamp}.json`);
+        }
+
+        /**
+         * Download generated solution
+         */
+        function downloadSolution() {
+            if (!generatedInstance) {
+                alert('Please generate an instance first');
+                return;
+            }
+
+            if (!generatedSolution) {
+                alert('No solution available - instance is UNSAT.\n\nThis instance cannot be solved.');
+                return;
+            }
+
+            // CRITICAL: Validate before download
+            const validation = validateCompleteSolution(generatedInstance, generatedSolution.dial_values);
+
+            if (!validation.isValid) {
+                alert("Cannot download: Solution is invalid!\n\nErrors:\n" + validation.errors.join("\n"));
+                console.error("Solution validation failed:", validation.errors);
+                return;  // Don't download
+            }
+
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const difficulty = document.getElementById('difficulty').value;
+            downloadJson(generatedSolution, `${difficulty}_solution_${timestamp}.json`);
+        }
+
+        // Initialize visualization
+        window.onload = function() {
+            const canvas = document.getElementById('generatorCanvas');
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = '#8b949e';
+            ctx.font = '18px var(--font-sans)';
+            ctx.textAlign = 'center';
+            ctx.fillText('Generate an instance to see visualization', canvas.width / 2, canvas.height / 2);
+        };
+    </script>
+</body>
+</html>

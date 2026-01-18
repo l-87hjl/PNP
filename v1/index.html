@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P vs NP Lock Experimentation</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🔐 P vs NP Lock Experimentation</h1>
+            <p class="subtitle">Exploring computational complexity through constraint-based locks</p>
+        </header>
+
+        <!-- Introduction Section -->
+        <section class="intro-section">
+            <div class="card">
+                <h2>What is this?</h2>
+                <p>
+                    This project explores the relationship between physical lock mechanisms and Boolean satisfiability (SAT) problems.
+                    Each lock consists of numbered <strong>dials</strong> that can be set to position <strong>1 (FALSE)</strong> or
+                    <strong>6 (TRUE)</strong>. Constraints enforce logical relationships between dials, creating an equivalence
+                    with 3-SAT problems.
+                </p>
+                <p>
+                    The lock system encodes three types of constraints:
+                </p>
+                <ul class="constraint-list">
+                    <li><strong>Binary Pins (Bin):</strong> Restrict dials to positions {1, 6}</li>
+                    <li><strong>Negation Links (Not):</strong> Enforce dial<sub>i</sub> + dial<sub>j</sub> = 7 (opposite values)</li>
+                    <li><strong>OR Clauses:</strong> Enforce dial<sub>i</sub> + dial<sub>j</sub> + dial<sub>k</sub> ≥ 8 (at least one TRUE)</li>
+                </ul>
+                <p>
+                    A lock is "unlockable" if and only if the corresponding SAT formula is satisfiable. This establishes
+                    a direct connection between physical constraints and computational complexity theory, making the
+                    abstract P vs NP question more tangible.
+                </p>
+            </div>
+
+            <div class="card">
+                <h2>How it Works</h2>
+                <div class="example-box">
+                    <h3>Example: Simple Lock</h3>
+                    <p><strong>Configuration:</strong></p>
+                    <ul>
+                        <li>3 dials</li>
+                        <li>Negation: Not(1, 2) → Dial 1 and Dial 2 must be opposite</li>
+                        <li>OR Clause: (1, 2, 3) → At least one dial must be TRUE</li>
+                    </ul>
+                    <p><strong>Valid Solution:</strong></p>
+                    <ul>
+                        <li>Dial 1 = 6 (TRUE)</li>
+                        <li>Dial 2 = 1 (FALSE) ← Opposite of Dial 1 ✓</li>
+                        <li>Dial 3 = 1 (FALSE)</li>
+                        <li>Sum of clause = 6 + 1 + 1 = 8 ✓</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tools Section -->
+        <section class="tools-section">
+            <h2>Interactive Tools</h2>
+
+            <div class="tools-grid">
+                <div class="tool-card">
+                    <div class="tool-icon">🛠️</div>
+                    <h3>Manual Lock Builder</h3>
+                    <p>
+                        Create custom lock instances by hand. Add dials, define negation links,
+                        and specify OR clauses with an interactive visual interface.
+                    </p>
+                    <a href="manual.html" class="btn btn-primary">Open Builder</a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">⚡</div>
+                    <h3>Automatic Generator</h3>
+                    <p>
+                        Generate random lock instances with specified parameters. Perfect for
+                        testing and experimentation.
+                    </p>
+                    <a href="auto.html" class="btn btn-primary">Open Generator</a>
+                </div>
+
+                <div class="tool-card">
+                    <div class="tool-icon">🔍</div>
+                    <h3>Lock Solver</h3>
+                    <p>
+                        Upload a lock instance and let the SAT solver find a valid configuration,
+                        or prove that none exists.
+                    </p>
+                    <a href="solver.html" class="btn btn-primary">Open Solver</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features-section">
+            <h2>Features</h2>
+            <div class="features-grid">
+                <div class="feature-item">
+                    <h4>🎨 Visual Lock Design</h4>
+                    <p>Interactive diagrams show dial connections and constraints</p>
+                </div>
+                <div class="feature-item">
+                    <h4>✅ Real-time Validation</h4>
+                    <p>Input validation ensures correct lock configurations</p>
+                </div>
+                <div class="feature-item">
+                    <h4>💾 JSON Export</h4>
+                    <p>Download instances in standard JSON format</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🧮 SAT Solver</h4>
+                    <p>Powered by PySAT's Glucose3 solver</p>
+                </div>
+                <div class="feature-item">
+                    <h4>📚 Examples Included</h4>
+                    <p>6 pre-built instances from trivial to complex</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🧪 Comprehensive Tests</h4>
+                    <p>38 automated tests ensure correctness</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- GitHub Section -->
+        <section class="github-section">
+            <div class="card centered">
+                <h2>Open Source</h2>
+                <p>
+                    This project is open source and available on GitHub. Explore the code,
+                    run the Python tools, or contribute to the project.
+                </p>
+                <a href="https://github.com/l-87hjl/PNP" class="btn btn-github" target="_blank">
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>P vs NP Lock Experimentation Tool</p>
+            <p>Educational project exploring computational complexity through physical metaphors</p>
+            <p class="footer-links">
+                <a href="https://github.com/l-87hjl/PNP/blob/main/README.md" target="_blank">Documentation</a>
+                <span>•</span>
+                <a href="https://github.com/l-87hjl/PNP/tree/main/examples" target="_blank">Examples</a>
+                <span>•</span>
+                <a href="https://github.com/l-87hjl/PNP/blob/main/LICENSE" target="_blank">License</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
