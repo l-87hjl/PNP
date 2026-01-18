@@ -68,6 +68,28 @@
                     <h3>Verification</h3>
                     <div id="verificationResults"></div>
                 </div>
+
+                <!-- Instance Metadata -->
+                <div class="control-section" id="instanceMetadataSection" style="display: none;">
+                    <h3>Instance Metadata</h3>
+                    <details style="font-family: monospace; font-size: 0.85rem;">
+                        <summary style="cursor: pointer; padding: 8px; background-color: var(--bg-tertiary); border-radius: 4px;">
+                            <strong>📋 Generation Details</strong>
+                        </summary>
+                        <pre id="instanceMetadataContent" style="background-color: var(--bg-tertiary); padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 8px; max-height: 300px; overflow-y: auto;"></pre>
+                    </details>
+                </div>
+
+                <!-- Solve Metadata -->
+                <div class="control-section" id="solveMetadataSection" style="display: none;">
+                    <h3>Solve Metadata</h3>
+                    <details style="font-family: monospace; font-size: 0.85rem;">
+                        <summary style="cursor: pointer; padding: 8px; background-color: var(--bg-tertiary); border-radius: 4px;">
+                            <strong>⚙️ Solver Performance</strong>
+                        </summary>
+                        <pre id="solveMetadataContent" style="background-color: var(--bg-tertiary); padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 8px;"></pre>
+                    </details>
+                </div>
             </div>
 
             <!-- Right Panel: Visualization -->
@@ -138,6 +160,16 @@
                 document.getElementById('solveSection').style.display = 'block';
                 document.getElementById('solutionSection').style.display = 'none';
                 document.getElementById('verificationSection').style.display = 'none';
+                document.getElementById('solveMetadataSection').style.display = 'none';
+
+                // Display instance metadata if present
+                if (instance.meta) {
+                    document.getElementById('instanceMetadataContent').textContent =
+                        JSON.stringify(instance.meta, null, 2);
+                    document.getElementById('instanceMetadataSection').style.display = 'block';
+                } else {
+                    document.getElementById('instanceMetadataSection').style.display = 'none';
+                }
 
                 // Visualize instance
                 visualizeLock(instance, 'solverCanvas');
@@ -171,16 +203,17 @@
 
             // Use setTimeout to allow UI to update
             setTimeout(() => {
-                const startTime = performance.now();
-                const solution = backtrackingSolver(currentInstance);
-                const endTime = performance.now();
-                const solveTime = ((endTime - startTime) / 1000).toFixed(3);
+                const result = backtrackingSolver(currentInstance);
+                const solveTime = (result.runMeta.result.solve_time_ms / 1000).toFixed(3);
 
-                if (solution) {
-                    currentSolution = {dial_values: solution};
+                // Display solve metadata
+                displaySolveMetadata(result.runMeta);
+
+                if (result.solution) {
+                    currentSolution = {dial_values: result.solution};
 
                     // Display solution
-                    displaySolution(solution, solveTime);
+                    displaySolution(result.solution, solveTime);
 
                     // Verify solution
                     verifySolutionAndDisplay();
@@ -188,26 +221,41 @@
                     // Update visualization
                     visualizeLock(currentInstance, 'solverCanvas', currentSolution);
 
-                    showMessage(msgDiv, `✓ SATISFIABLE (solved in ${solveTime}s)`, 'success', 5000);
+                    showMessage(msgDiv, `✓ SATISFIABLE (solved in ${solveTime}s, ${result.runMeta.result.decisions} decisions)`, 'success', 5000);
                 } else {
                     currentSolution = null;
                     document.getElementById('solutionSection').style.display = 'none';
                     document.getElementById('verificationSection').style.display = 'none';
-                    showMessage(msgDiv, `✗ UNSATISFIABLE (checked in ${solveTime}s)`, 'error', 0);
+
+                    const statusMsg = result.runMeta.result.cutoff_triggered
+                        ? `⏱️ TIMEOUT (after ${solveTime}s, ${result.runMeta.result.decisions} decisions)`
+                        : `✗ UNSATISFIABLE (checked in ${solveTime}s, ${result.runMeta.result.decisions} decisions)`;
+
+                    showMessage(msgDiv, statusMsg, 'error', 0);
                 }
             }, 100);
         }
 
         /**
-         * Simple backtracking SAT solver
+         * Simple backtracking SAT solver with metadata tracking
          * @param {Object} instance - Lock instance
-         * @returns {Object|null} - Solution dial values or null if UNSAT
+         * @param {number} timeout - Timeout in milliseconds (default: 10000)
+         * @returns {Object} - {solution, runMeta}
          */
-        function backtrackingSolver(instance) {
+        function backtrackingSolver(instance, timeout = 10000) {
             const assignment = {};
+            const startTime = performance.now();
+            let decisions = 0;
+            let cutoffTriggered = false;
 
             // Try to find a satisfying assignment using backtracking
             function backtrack(dialIndex) {
+                // Timeout check
+                if (performance.now() - startTime > timeout) {
+                    cutoffTriggered = true;
+                    return false;
+                }
+
                 // Base case: all dials assigned
                 if (dialIndex > instance.num_dials) {
                     return checkAllConstraints(assignment, instance);
@@ -215,6 +263,7 @@
 
                 // Try both values for this dial (1 and 6)
                 for (const value of [1, 6]) {
+                    decisions++;  // Track branching decisions
                     assignment[dialIndex] = value;
 
                     // Check if this assignment violates any constraints so far
@@ -231,10 +280,29 @@
                 return false;
             }
 
-            if (backtrack(1)) {
-                return assignment;
-            }
-            return null;
+            const found = backtrack(1);
+            const endTime = performance.now();
+
+            // Create run metadata
+            const runMeta = {
+                solver: {
+                    name: "PNP-web-solver",
+                    version: "2.0.0",
+                    algorithm: "DPLL-backtracking"
+                },
+                result: {
+                    outcome: found ? "SAT" : (cutoffTriggered ? "TIMEOUT" : "UNSAT"),
+                    solve_time_ms: Math.round(endTime - startTime),
+                    decisions: decisions,
+                    cutoff_triggered: cutoffTriggered
+                },
+                instance_id: instance.meta?.generator?.seed || "unknown"
+            };
+
+            return {
+                solution: found ? assignment : null,
+                runMeta: runMeta
+            };
         }
 
         /**
@@ -349,6 +417,15 @@
 
             document.getElementById('verificationResults').innerHTML = html;
             document.getElementById('verificationSection').style.display = 'block';
+        }
+
+        /**
+         * Display solve run metadata
+         */
+        function displaySolveMetadata(runMeta) {
+            document.getElementById('solveMetadataContent').textContent =
+                JSON.stringify(runMeta, null, 2);
+            document.getElementById('solveMetadataSection').style.display = 'block';
         }
 
         // Initialize visualization
