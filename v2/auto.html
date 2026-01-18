@@ -448,6 +448,74 @@ Solution will appear here</pre>
         }
 
         /**
+         * Generates unit clauses (single literal)
+         * Forces immediate propagation during solving
+         * @param {number} count - Number of unit clauses to generate
+         * @param {number} totalDials - Total number of dials available
+         * @returns {Array} Array of unit clauses
+         */
+        function generateUnitClauses(count, totalDials) {
+            const units = [];
+            const usedDials = new Set();
+
+            for (let i = 0; i < count; i++) {
+                let dial;
+                do {
+                    dial = Math.floor(Math.random() * totalDials) + 1;
+                } while (usedDials.has(dial));
+
+                usedDials.add(dial);
+                units.push([dial, dial, dial]);  // Represent as [dial, dial, dial] to maintain clause structure
+            }
+
+            return units;
+        }
+
+        /**
+         * Generates binary clauses (two literals)
+         * Creates implication chains for faster propagation
+         * @param {number} count - Number of binary clauses to generate
+         * @param {number} totalDials - Total number of dials available
+         * @param {Array} existingClauses - Already generated clauses (to avoid duplicates)
+         * @returns {Array} Array of binary clauses
+         */
+        function generateBinaryClauses(count, totalDials, existingClauses) {
+            const binaries = [];
+
+            for (let i = 0; i < count; i++) {
+                const dial1 = Math.floor(Math.random() * totalDials) + 1;
+                let dial2;
+                do {
+                    dial2 = Math.floor(Math.random() * totalDials) + 1;
+                } while (dial2 === dial1);
+
+                // Represent as [dial1, dial2, dial2] to maintain 3-element structure
+                binaries.push([dial1, dial2, dial2]);
+            }
+
+            return binaries;
+        }
+
+        /**
+         * Adjusts clause generation to create pure literals
+         * Variables that appear only positive or only negative
+         * @param {Array} variables - Array of variable indices
+         * @param {number} pureLiteralBias - Probability of creating pure literals
+         * @returns {Map} Map of variable to polarity ('positive' or 'negative')
+         */
+        function createPureLiterals(variables, pureLiteralBias) {
+            const pureLiterals = new Map();
+
+            for (const v of variables) {
+                if (Math.random() < pureLiteralBias) {
+                    pureLiterals.set(v, Math.random() < 0.5 ? 'positive' : 'negative');
+                }
+            }
+
+            return pureLiterals;
+        }
+
+        /**
          * Generate web-safe instance with structural features for fast resolution
          */
         function generateWebSafeInstance(numVars) {
@@ -597,74 +665,6 @@ Solution will appear here</pre>
                     }
                 }
             };
-        }
-
-        /**
-         * Generates unit clauses (single literal)
-         * Forces immediate propagation during solving
-         * @param {number} count - Number of unit clauses to generate
-         * @param {number} totalDials - Total number of dials available
-         * @returns {Array} Array of unit clauses
-         */
-        function generateUnitClauses(count, totalDials) {
-            const units = [];
-            const usedDials = new Set();
-
-            for (let i = 0; i < count; i++) {
-                let dial;
-                do {
-                    dial = Math.floor(Math.random() * totalDials) + 1;
-                } while (usedDials.has(dial));
-
-                usedDials.add(dial);
-                units.push([dial, dial, dial]);  // Represent as [dial, dial, dial] to maintain clause structure
-            }
-
-            return units;
-        }
-
-        /**
-         * Generates binary clauses (two literals)
-         * Creates implication chains for faster propagation
-         * @param {number} count - Number of binary clauses to generate
-         * @param {number} totalDials - Total number of dials available
-         * @param {Array} existingClauses - Already generated clauses (to avoid duplicates)
-         * @returns {Array} Array of binary clauses
-         */
-        function generateBinaryClauses(count, totalDials, existingClauses) {
-            const binaries = [];
-
-            for (let i = 0; i < count; i++) {
-                const dial1 = Math.floor(Math.random() * totalDials) + 1;
-                let dial2;
-                do {
-                    dial2 = Math.floor(Math.random() * totalDials) + 1;
-                } while (dial2 === dial1);
-
-                // Represent as [dial1, dial2, dial2] to maintain 3-element structure
-                binaries.push([dial1, dial2, dial2]);
-            }
-
-            return binaries;
-        }
-
-        /**
-         * Adjusts clause generation to create pure literals
-         * Variables that appear only positive or only negative
-         * @param {Array} variables - Array of variable indices
-         * @param {number} pureLiteralBias - Probability of creating pure literals
-         * @returns {Map} Map of variable to polarity ('positive' or 'negative')
-         */
-        function createPureLiterals(variables, pureLiteralBias) {
-            const pureLiterals = new Map();
-
-            for (const v of variables) {
-                if (Math.random() < pureLiteralBias) {
-                    pureLiterals.set(v, Math.random() < 0.5 ? 'positive' : 'negative');
-                }
-            }
-
-            return pureLiterals;
         }
 
         /**
